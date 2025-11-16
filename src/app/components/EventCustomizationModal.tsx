@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { X, Palette, Image as ImageIcon, Type } from 'lucide-react'
+import { X, Palette, Image as ImageIcon, Type, ImagePlus } from 'lucide-react'
 import Image from 'next/image'
 
 interface EventCustomizationModalProps {
@@ -16,6 +16,8 @@ export interface EventCustomizationData {
   backgroundColor: string
   textColor: string
   backgroundImage?: string
+  logo?: string
+  logoPosition?: 'top-left' | 'top-right' | 'top-center' | 'bottom-left' | 'bottom-right' | 'bottom-center' | 'left' | 'right' | 'center'
 }
 
 const colorPresets = [
@@ -35,10 +37,13 @@ export default function EventCustomizationModal({ isOpen, onClose, onCreateEvent
     displayName: '',
     backgroundColor: '#1f2937',
     textColor: '#ffffff',
-    backgroundImage: undefined
+    backgroundImage: undefined,
+    logo: undefined,
+    logoPosition: 'top-left'
   })
   const [isLoading, setIsLoading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const logoInputRef = useRef<HTMLInputElement>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -54,7 +59,9 @@ export default function EventCustomizationModal({ isOpen, onClose, onCreateEvent
         displayName: '',
         backgroundColor: '#1f2937',
         textColor: '#ffffff',
-        backgroundImage: undefined
+        backgroundImage: undefined,
+        logo: undefined,
+        logoPosition: 'top-left'
       })
     } catch (error) {
       console.error('Error creating event:', error)
@@ -91,6 +98,37 @@ export default function EventCustomizationModal({ isOpen, onClose, onCreateEvent
     setFormData(prev => ({ ...prev, backgroundImage: undefined }))
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
+    }
+  }
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Validar tamaño (máximo 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      alert('El logo debe ser menor a 2MB')
+      return
+    }
+
+    // Validar tipo
+    if (!file.type.startsWith('image/')) {
+      alert('Por favor selecciona una imagen válida')
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      const result = event.target?.result as string
+      setFormData(prev => ({ ...prev, logo: result }))
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const removeLogo = () => {
+    setFormData(prev => ({ ...prev, logo: undefined }))
+    if (logoInputRef.current) {
+      logoInputRef.current.value = ''
     }
   }
 
@@ -229,6 +267,83 @@ export default function EventCustomizationModal({ isOpen, onClose, onCreateEvent
             </div>
           </div>
 
+          {/* Logo */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-gray-800 flex items-center">
+              <ImagePlus className="w-5 h-5 mr-2" />
+              Logo del Evento (Opcional)
+            </h3>
+
+            <div>
+              <input
+                ref={logoInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleLogoUpload}
+                className="hidden"
+              />
+              
+              {formData.logo ? (
+                <div className="space-y-3">
+                  <div className="relative">
+                    <Image
+                      src={formData.logo}
+                      alt="Logo Preview"
+                      width={200}
+                      height={200}
+                      className="w-32 h-32 object-contain rounded-lg border mx-auto"
+                    />
+                    <button
+                      type="button"
+                      onClick={removeLogo}
+                      className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <p className="text-sm text-gray-600 text-center">
+                    ✅ Logo cargado.
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => logoInputRef.current?.click()}
+                    className="w-full border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors"
+                  >
+                    <ImagePlus className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                    <p className="text-gray-600">Haz clic para subir un logo</p>
+                    <p className="text-sm text-gray-500 mt-1">Máximo 2MB</p>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {formData.logo && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Posición del logo en la vista pública:
+                </label>
+                <select
+                  value={formData.logoPosition || 'top-left'}
+                  onChange={(e) => setFormData(prev => ({ ...prev, logoPosition: e.target.value as EventCustomizationData['logoPosition'] }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900"
+                >
+                  <option value="top-left">Arriba Izquierda</option>
+                  <option value="top-center">Arriba Centro</option>
+                  <option value="top-right">Arriba Derecha</option>
+                  <option value="left">Izquierda</option>
+                  <option value="center">Centro</option>
+                  <option value="right">Derecha</option>
+                  <option value="bottom-left">Abajo Izquierda</option>
+                  <option value="bottom-center">Abajo Centro</option>
+                  <option value="bottom-right">Abajo Derecha</option>
+                </select>
+              </div>
+            )}
+          </div>
+
           {/* Imagen de fondo */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-gray-800 flex items-center">
@@ -287,16 +402,42 @@ export default function EventCustomizationModal({ isOpen, onClose, onCreateEvent
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-gray-800">Vista Previa</h3>
             <div 
-              className="p-6 rounded-lg border"
+              className="p-6 rounded-lg border relative"
               style={{ 
                 backgroundColor: formData.backgroundColor,
                 color: formData.textColor,
                 backgroundImage: formData.backgroundImage ? `url(${formData.backgroundImage})` : undefined,
                 backgroundSize: 'cover',
                 backgroundRepeat: 'no-repeat',
-                backgroundPosition: 'center center'
+                backgroundPosition: 'center center',
+                minHeight: '200px'
               }}
             >
+              {/* Logo en preview */}
+              {formData.logo && (
+                <div 
+                  className="absolute"
+                  style={{
+                    ...(formData.logoPosition === 'top-left' && { top: '1rem', left: '1rem' }),
+                    ...(formData.logoPosition === 'top-center' && { top: '1rem', left: '50%', transform: 'translateX(-50%)' }),
+                    ...(formData.logoPosition === 'top-right' && { top: '1rem', right: '1rem' }),
+                    ...(formData.logoPosition === 'left' && { top: '50%', left: '1rem', transform: 'translateY(-50%)' }),
+                    ...(formData.logoPosition === 'center' && { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }),
+                    ...(formData.logoPosition === 'right' && { top: '50%', right: '1rem', transform: 'translateY(-50%)' }),
+                    ...(formData.logoPosition === 'bottom-left' && { bottom: '1rem', left: '1rem' }),
+                    ...(formData.logoPosition === 'bottom-center' && { bottom: '1rem', left: '50%', transform: 'translateX(-50%)' }),
+                    ...(formData.logoPosition === 'bottom-right' && { bottom: '1rem', right: '1rem' })
+                  }}
+                >
+                  <Image
+                    src={formData.logo}
+                    alt="Logo"
+                    width={80}
+                    height={80}
+                    className="w-20 h-20 object-contain"
+                  />
+                </div>
+              )}
               <h2 className="text-2xl font-bold text-center mb-2" style={{ color: formData.textColor }}>
                 {formData.displayName || 'Nombre del evento'}
               </h2>

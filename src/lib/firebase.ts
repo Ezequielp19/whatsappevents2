@@ -39,6 +39,8 @@ export interface Event {
   backgroundColor: string
   textColor: string
   backgroundImage?: string // base64
+  logo?: string // base64
+  logoPosition?: 'top-left' | 'top-right' | 'top-center' | 'bottom-left' | 'bottom-right' | 'bottom-center' | 'left' | 'right' | 'center'
 }
 
 export interface Guest {
@@ -55,7 +57,9 @@ export const createEvent = async (
   displayName: string, 
   backgroundColor: string = '#1f2937', 
   textColor: string = '#ffffff',
-  backgroundImage?: string
+  backgroundImage?: string,
+  logo?: string,
+  logoPosition?: 'top-left' | 'top-right' | 'top-center' | 'bottom-left' | 'bottom-right' | 'bottom-center' | 'left' | 'right' | 'center'
 ) => {
   const qrCode = `event_${Date.now()}`
   const docRef = await addDoc(collection(db, 'events'), {
@@ -65,6 +69,8 @@ export const createEvent = async (
     backgroundColor,
     textColor,
     backgroundImage: backgroundImage || null,
+    logo: logo || null,
+    logoPosition: logoPosition || null,
     createdAt: new Date(),
     isActive: true
   })
@@ -76,6 +82,8 @@ export const createEvent = async (
     backgroundColor,
     textColor,
     backgroundImage,
+    logo,
+    logoPosition,
     createdAt: new Date(), 
     isActive: true 
   }

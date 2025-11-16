@@ -62,7 +62,9 @@ export default function AdminPage() {
         data.displayName,
         data.backgroundColor,
         data.textColor,
-        data.backgroundImage
+        data.backgroundImage,
+        data.logo,
+        data.logoPosition
       )
       setEvent(newEvent)
       

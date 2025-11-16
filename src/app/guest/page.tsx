@@ -317,7 +317,7 @@ export default function GuestPage() {
         {showPublicView && (
           <div className="lg:w-1/2 w-full lg:border-l border-t lg:border-t-0 border-gray-300">
             <div 
-              className="h-full"
+              className="h-full relative"
               style={{ 
                 backgroundColor: event.backgroundColor,
                 color: event.textColor,
@@ -327,6 +327,34 @@ export default function GuestPage() {
                 backgroundPosition: 'center center'
               }}
             >
+              {/* Logo en posición absoluta */}
+              {event.logo && (
+                <div 
+                  className="absolute z-10"
+                  style={{
+                    ...(event.logoPosition === 'top-left' && { top: '0.5rem', left: '0.5rem' }),
+                    ...(event.logoPosition === 'top-center' && { top: '0.5rem', left: '50%', transform: 'translateX(-50%)' }),
+                    ...(event.logoPosition === 'top-right' && { top: '0.5rem', right: '0.5rem' }),
+                    ...(event.logoPosition === 'left' && { top: '50%', left: '0.5rem', transform: 'translateY(-50%)' }),
+                    ...(event.logoPosition === 'center' && { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }),
+                    ...(event.logoPosition === 'right' && { top: '50%', right: '0.5rem', transform: 'translateY(-50%)' }),
+                    ...(event.logoPosition === 'bottom-left' && { bottom: '0.5rem', left: '0.5rem' }),
+                    ...(event.logoPosition === 'bottom-center' && { bottom: '0.5rem', left: '50%', transform: 'translateX(-50%)' }),
+                    ...(event.logoPosition === 'bottom-right' && { bottom: '0.5rem', right: '0.5rem' }),
+                    ...(!event.logoPosition && { top: '0.5rem', left: '0.5rem' }) // Default a top-left si no hay posición
+                  }}
+                >
+                  <img
+                    src={event.logo}
+                    alt="Logo del evento"
+                    className="w-16 h-16 md:w-20 md:h-20 object-contain drop-shadow-lg"
+                    style={{
+                      filter: event.backgroundImage ? 'drop-shadow(0 4px 6px rgba(0,0,0,0.5))' : undefined
+                    }}
+                  />
+                </div>
+              )}
+
               {/* Header de la pantalla pública */}
               <div 
                 className="border-b p-4"

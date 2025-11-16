@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { getEventByCode, Event } from '@/lib/firebase'
 import { subscribeToMessages, Message } from '@/lib/pusher-messages'
 import { MessageCircle, QrCode, Sparkles } from 'lucide-react'
+import Image from 'next/image'
 
 export default function PublicPage() {
   const [event, setEvent] = useState<Event | null>(null)
@@ -129,7 +130,7 @@ export default function PublicPage() {
   
   return (
     <div 
-      className="min-h-screen"
+      className="min-h-screen relative"
       style={{ 
         backgroundColor: event.backgroundColor,
         color: event.textColor,
@@ -140,6 +141,36 @@ export default function PublicPage() {
         backgroundAttachment: 'fixed'
       }}
     >
+      {/* Logo en posición absoluta */}
+      {event.logo && (
+        <div 
+          className="absolute z-10"
+          style={{
+            ...(event.logoPosition === 'top-left' && { top: '1rem', left: '1rem' }),
+            ...(event.logoPosition === 'top-center' && { top: '1rem', left: '50%', transform: 'translateX(-50%)' }),
+            ...(event.logoPosition === 'top-right' && { top: '1rem', right: '1rem' }),
+            ...(event.logoPosition === 'left' && { top: '50%', left: '1rem', transform: 'translateY(-50%)' }),
+            ...(event.logoPosition === 'center' && { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }),
+            ...(event.logoPosition === 'right' && { top: '50%', right: '1rem', transform: 'translateY(-50%)' }),
+            ...(event.logoPosition === 'bottom-left' && { bottom: '1rem', left: '1rem' }),
+            ...(event.logoPosition === 'bottom-center' && { bottom: '1rem', left: '50%', transform: 'translateX(-50%)' }),
+            ...(event.logoPosition === 'bottom-right' && { bottom: '1rem', right: '1rem' }),
+            ...(!event.logoPosition && { top: '1rem', left: '1rem' }) // Default a top-left si no hay posición
+          }}
+        >
+          <Image
+            src={event.logo}
+            alt="Logo del evento"
+            width={120}
+            height={120}
+            className="w-24 h-24 md:w-32 md:h-32 object-contain drop-shadow-lg"
+            style={{
+              filter: event.backgroundImage ? 'drop-shadow(0 4px 6px rgba(0,0,0,0.5))' : undefined
+            }}
+          />
+        </div>
+      )}
+
       {/* Header */}
       <div 
         className="border-b p-6 relative"
