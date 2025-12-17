@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { getEventByCode, registerGuest, getGuestByPhone, Event, Guest } from '@/lib/firebase'
 import { sendMessage, subscribeToMessages, Message } from '@/lib/pusher-messages'
 import { Send, MessageCircle, User, Phone, Monitor } from 'lucide-react'
@@ -21,6 +21,12 @@ export default function GuestPage() {
   const [isRegistering, setIsRegistering] = useState(false)
   const [showPublicView, setShowPublicView] = useState(false)
   const [imageBase64, setImageBase64] = useState<string | null>(null)
+  
+  // Refs para scroll automático
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const publicMessagesEndRef = useRef<HTMLDivElement>(null)
+  const isFirstLoad = useRef(true)
+  const isFirstPublicLoad = useRef(true)
 
   // Función helper para convertir fechas de Firebase
   const formatDate = (date: Date | { seconds: number } | string | number | null | undefined) => {
@@ -158,6 +164,31 @@ export default function GuestPage() {
     return () => unsubscribe()
   }, [event, guest])
 
+  // Scroll automático cuando cambian los mensajes
+  useEffect(() => {
+    if (messages.length > 0) {
+      // Pequeño delay para asegurar que el DOM se haya actualizado
+      setTimeout(() => {
+        // Scroll inmediato la primera vez, suave después
+        const behavior = isFirstLoad.current ? 'auto' : 'smooth'
+        messagesEndRef.current?.scrollIntoView({ behavior })
+        isFirstLoad.current = false
+      }, 100)
+    }
+  }, [messages])
+
+  // Scroll automático para la vista pública integrada
+  useEffect(() => {
+    if (showPublicView && messages.length > 0) {
+      setTimeout(() => {
+        // Scroll inmediato la primera vez, suave después
+        const behavior = isFirstPublicLoad.current ? 'auto' : 'smooth'
+        publicMessagesEndRef.current?.scrollIntoView({ behavior })
+        isFirstPublicLoad.current = false
+      }, 100)
+    }
+  }, [messages, showPublicView])
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-green-400 to-blue-500 flex items-center justify-center p-4">
@@ -245,7 +276,8 @@ export default function GuestPage() {
   }
 
   // Si está registrado, mostrar chat tipo WhatsApp
-  const approvedMessages = messages.filter(m => m.status === 'approved')
+  // Invertir orden: más antiguos arriba, más recientes abajo (como WhatsApp)
+  const approvedMessages = messages.filter(m => m.status === 'approved').reverse()
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
@@ -281,34 +313,38 @@ export default function GuestPage() {
                 <p>Los mensajes aparecerán aquí cuando sean aprobados</p>
               </div>
             ) : (
-              approvedMessages.map((message) => (
-                <div key={message.id} className={`flex ${message.guestName === guest.name ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-xs px-4 py-2 rounded-lg ${
-                    message.guestName === guest.name 
-                      ? 'bg-green-500 text-white' 
-                      : 'bg-white text-gray-800'
-                  }`}>
-                    {message.guestName !== guest.name && (
-                      <p className="text-xs font-semibold mb-1">{message.guestName}</p>
-                    )}
-                    <p>{message.message}</p>
-                    {message.image && (
-                      <div className="mt-2">
-                        <img 
-                          src={message.image} 
-                          alt="Imagen enviada" 
-                          className="max-w-full h-auto max-h-48 rounded-lg shadow-sm" 
-                        />
-                      </div>
-                    )}
-                    <p className={`text-xs mt-1 ${
-                      message.guestName === guest.name ? 'text-green-100' : 'text-gray-500'
+              <>
+                {approvedMessages.map((message) => (
+                  <div key={message.id} className={`flex ${message.guestName === guest.name ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-xs px-4 py-2 rounded-lg ${
+                      message.guestName === guest.name 
+                        ? 'bg-green-500 text-white' 
+                        : 'bg-white text-gray-800'
                     }`}>
-                      {formatDate(message.createdAt)}
-                    </p>
+                      {message.guestName !== guest.name && (
+                        <p className="text-xs font-semibold mb-1">{message.guestName}</p>
+                      )}
+                      <p>{message.message}</p>
+                      {message.image && (
+                        <div className="mt-2">
+                          <img 
+                            src={message.image} 
+                            alt="Imagen enviada" 
+                            className="max-w-full h-auto max-h-48 rounded-lg shadow-sm" 
+                          />
+                        </div>
+                      )}
+                      <p className={`text-xs mt-1 ${
+                        message.guestName === guest.name ? 'text-green-100' : 'text-gray-500'
+                      }`}>
+                        {formatDate(message.createdAt)}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              ))
+                ))}
+                {/* Elemento invisible al final para scroll automático */}
+                <div ref={messagesEndRef} />
+              </>
             )}
           </div>
         </div>
@@ -384,48 +420,52 @@ export default function GuestPage() {
                       <p className="text-sm">Los mensajes aparecerán aquí cuando sean aprobados</p>
                     </div>
                   ) : (
-                    approvedMessages.map((message, index) => (
-                      <div 
-                        key={message.id} 
-                        className={`flex items-end space-x-2 ${
-                          index % 2 === 0 ? 'animate-slideInLeft' : 'animate-slideInRight'
-                        }`}
-                        style={{ animationDelay: `${index * 0.1}s` }}
-                      >
-                        {/* Avatar */}
+                    <>
+                      {approvedMessages.map((message, index) => (
                         <div 
-                          className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0"
-                          style={{ 
-                            background: 'linear-gradient(135deg, #25d366, #128c7e)',
-                            color: 'white',
-                            boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                          }}
+                          key={message.id} 
+                          className={`flex items-end space-x-2 ${
+                            index % 2 === 0 ? 'animate-slideInLeft' : 'animate-slideInRight'
+                          }`}
+                          style={{ animationDelay: `${index * 0.1}s` }}
                         >
-                          {message.guestName.charAt(0).toUpperCase()}
-                        </div>
-                        
-                        {/* Mensaje */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center space-x-1 mb-1">
-                            <span className="font-semibold text-xs opacity-90">{message.guestName}</span>
-                            <span className="text-xs opacity-60">
-                              {formatDate(message.createdAt)}
-                            </span>
-                          </div>
-                          
-                          {/* Burbuja de mensaje */}
+                          {/* Avatar */}
                           <div 
-                            className="rounded-lg px-3 py-2 text-sm break-words relative"
+                            className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0"
                             style={{ 
-                              backgroundColor: event.textColor === '#ffffff' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
-                              backdropFilter: 'blur(5px)'
+                              background: 'linear-gradient(135deg, #25d366, #128c7e)',
+                              color: 'white',
+                              boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
                             }}
                           >
-                            {message.message}
+                            {message.guestName.charAt(0).toUpperCase()}
+                          </div>
+                          
+                          {/* Mensaje */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center space-x-1 mb-1">
+                              <span className="font-semibold text-xs opacity-90">{message.guestName}</span>
+                              <span className="text-xs opacity-60">
+                                {formatDate(message.createdAt)}
+                              </span>
+                            </div>
+                            
+                            {/* Burbuja de mensaje */}
+                            <div 
+                              className="rounded-lg px-3 py-2 text-sm break-words relative"
+                              style={{ 
+                                backgroundColor: event.textColor === '#ffffff' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+                                backdropFilter: 'blur(5px)'
+                              }}
+                            >
+                              {message.message}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))
+                      ))}
+                      {/* Elemento invisible al final para scroll automático */}
+                      <div ref={publicMessagesEndRef} />
+                    </>
                   )}
                 </div>
               </div>

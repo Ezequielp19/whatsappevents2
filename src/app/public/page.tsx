@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { getEventByCode, Event } from '@/lib/firebase'
 import { subscribeToMessages, Message } from '@/lib/pusher-messages'
 import { MessageCircle, QrCode, Sparkles } from 'lucide-react'
@@ -12,6 +12,10 @@ export default function PublicPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [, setNewMessageCount] = useState(0)
   const [showNewMessageEffect, setShowNewMessageEffect] = useState(false)
+  
+  // Ref para scroll automático
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const isFirstLoad = useRef(true)
 
   // Función helper para convertir fechas de Firebase
   const formatDate = (date: Date | { seconds: number } | string | number | null | undefined) => {
@@ -102,6 +106,19 @@ export default function PublicPage() {
     return () => unsubscribe()
   }, [event])
 
+  // Scroll automático cuando cambian los mensajes
+  useEffect(() => {
+    if (messages.length > 0) {
+      // Pequeño delay para asegurar que el DOM se haya actualizado
+      setTimeout(() => {
+        // Scroll inmediato la primera vez, suave después
+        const behavior = isFirstLoad.current ? 'auto' : 'smooth'
+        messagesEndRef.current?.scrollIntoView({ behavior })
+        isFirstLoad.current = false
+      }, 100)
+    }
+  }, [messages])
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-800 flex items-center justify-center">
@@ -125,7 +142,8 @@ export default function PublicPage() {
   }
 
   // Filtrar solo mensajes aprobados para mostrar en pantalla pública
-  const approvedMessages = messages.filter(m => m.status === 'approved')
+  // Invertir orden: más antiguos arriba, más recientes abajo (como WhatsApp)
+  const approvedMessages = messages.filter(m => m.status === 'approved').reverse()
   const messagesToShow = approvedMessages
   
   return (
@@ -217,53 +235,57 @@ export default function PublicPage() {
                 <p className="text-sm">Los mensajes aparecerán aquí cuando sean aprobados por el administrador</p>
               </div>
             ) : (
-              messagesToShow.map((message, index) => (
-                <div 
-                  key={message.id} 
-                  className={`flex items-end space-x-3 mb-3 ${
-                    index % 2 === 0 ? 'animate-slideInLeft' : 'animate-slideInRight'
-                  }`}
-                  style={{ animationDelay: `${index * 0.1}s` }}
-                >
-                  {/* Avatar */}
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0" style={{ 
-                    background: 'linear-gradient(135deg, #25d366, #128c7e)',
-                    color: 'white',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                  }}>
-                    {message.guestName.charAt(0).toUpperCase()}
-                  </div>
-                  
-                  {/* Mensaje */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center space-x-2 mb-1">
-                      <span className="font-semibold text-sm opacity-90">{message.guestName}</span>
-                      <span className="text-xs opacity-60">
-                        {formatDate(message.createdAt)}
-                      </span>
+              <>
+                {messagesToShow.map((message, index) => (
+                  <div 
+                    key={message.id} 
+                    className={`flex items-end space-x-3 mb-3 ${
+                      index % 2 === 0 ? 'animate-slideInLeft' : 'animate-slideInRight'
+                    }`}
+                    style={{ animationDelay: `${index * 0.1}s` }}
+                  >
+                    {/* Avatar */}
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0" style={{ 
+                      background: 'linear-gradient(135deg, #25d366, #128c7e)',
+                      color: 'white',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                    }}>
+                      {message.guestName.charAt(0).toUpperCase()}
                     </div>
                     
-                    {/* Burbuja de mensaje */}
-                    <div className="whatsapp-bubble-other relative">
-                      <div className="text-gray-800 break-words">
-                        {message.message}
+                    {/* Mensaje */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center space-x-2 mb-1">
+                        <span className="font-semibold text-sm opacity-90">{message.guestName}</span>
+                        <span className="text-xs opacity-60">
+                          {formatDate(message.createdAt)}
+                        </span>
                       </div>
-                      {message.image && (
-                        <div className="w-[180px] h-32 mt-2 rounded-lg overflow-hidden border shadow-sm">
-                          <img 
-                            src={message.image} 
-                            alt="Imagen enviada" 
-                            className="w-full h-full object-cover" 
-                          />
+                      
+                      {/* Burbuja de mensaje */}
+                      <div className="whatsapp-bubble-other relative">
+                        <div className="text-gray-800 break-words">
+                          {message.message}
                         </div>
-                      )}
-                      <div className="message-time-left text-gray-500">
-                        {formatDate(message.createdAt)}
+                        {message.image && (
+                          <div className="w-[180px] h-32 mt-2 rounded-lg overflow-hidden border shadow-sm">
+                            <img 
+                              src={message.image} 
+                              alt="Imagen enviada" 
+                              className="w-full h-full object-cover" 
+                            />
+                          </div>
+                        )}
+                        <div className="message-time-left text-gray-500">
+                          {formatDate(message.createdAt)}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))
+                ))}
+                {/* Elemento invisible al final para scroll automático */}
+                <div ref={messagesEndRef} />
+              </>
             )}
           </div>
         </div>
