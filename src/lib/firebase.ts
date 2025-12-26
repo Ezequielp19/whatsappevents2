@@ -41,6 +41,13 @@ export interface Event {
   backgroundImage?: string // base64
   logo?: string // base64
   logoPosition?: 'top-left' | 'top-right' | 'top-center' | 'bottom-left' | 'bottom-right' | 'bottom-center' | 'left' | 'right' | 'center'
+  // Efectos
+  effects?: {
+    shake?: boolean // Pantalla movediza
+    neonLights?: boolean // Luces neon
+    rippleWaves?: boolean // Ondas expansivas
+    sparkleParticles?: boolean // Partículas brillantes
+  }
 }
 
 export interface Guest {
@@ -71,6 +78,12 @@ export const createEvent = async (
     backgroundImage: backgroundImage || null,
     logo: logo || null,
     logoPosition: logoPosition || null,
+    effects: {
+      shake: false,
+      neonLights: false,
+      rippleWaves: false,
+      sparkleParticles: false
+    },
     createdAt: new Date(),
     isActive: true
   })
@@ -84,6 +97,12 @@ export const createEvent = async (
     backgroundImage,
     logo,
     logoPosition,
+    effects: {
+      shake: false,
+      neonLights: false,
+      rippleWaves: false,
+      sparkleParticles: false
+    },
     createdAt: new Date(), 
     isActive: true 
   }
@@ -137,6 +156,14 @@ export const rejectMessage = async (messageId: string) => {
   })
 }
 
+// Función para actualizar efectos del evento
+export const updateEventEffects = async (eventId: string, effects: { shake?: boolean; neonLights?: boolean; rippleWaves?: boolean; sparkleParticles?: boolean }) => {
+  const eventRef = doc(db, 'events', eventId)
+  await updateDoc(eventRef, {
+    effects
+  })
+}
+
 // Funciones para invitados
 export const registerGuest = async (eventId: string, name: string, phone: string) => {
   const docRef = await addDoc(collection(db, 'guests'), {
@@ -172,5 +199,17 @@ export const subscribeToMessages = (eventId: string, callback: (messages: Messag
   return onSnapshot(q, (querySnapshot) => {
     const messages = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message))
     callback(messages)
+  })
+}
+
+// Suscripción en tiempo real a cambios del evento
+export const subscribeToEvent = (eventId: string, callback: (event: Event) => void) => {
+  const eventRef = doc(db, 'events', eventId)
+  
+  return onSnapshot(eventRef, (docSnapshot) => {
+    if (docSnapshot.exists()) {
+      const eventData = { id: docSnapshot.id, ...docSnapshot.data() } as Event
+      callback(eventData)
+    }
   })
 }

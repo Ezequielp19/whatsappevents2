@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { getEventByCode, Event } from '@/lib/firebase'
+import { getEventByCode, Event, subscribeToEvent } from '@/lib/firebase'
 import { subscribeToMessages, Message } from '@/lib/pusher-messages'
 import { MessageCircle, QrCode, Sparkles } from 'lucide-react'
 import Image from 'next/image'
@@ -12,10 +12,16 @@ export default function PublicPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [, setNewMessageCount] = useState(0)
   const [showNewMessageEffect, setShowNewMessageEffect] = useState(false)
+  const [shouldShake, setShouldShake] = useState(false)
+  const [rippleWaves, setRippleWaves] = useState<Array<{ id: string; x: number; y: number }>>([])
+  const [sparkleParticles, setSparkleParticles] = useState<Array<{ id: string; x: number; y: number }>>([])
   
   // Ref para scroll automático
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const isFirstLoad = useRef(true)
+  const previousMessagesRef = useRef<Message[]>([])
+  const messageRefs = useRef<Map<string, HTMLDivElement>>(new Map())
+  const processedMessagesRef = useRef<Set<string>>(new Set())
 
   // Función helper para convertir fechas de Firebase
   const formatDate = (date: Date | { seconds: number } | string | number | null | undefined) => {
@@ -72,39 +78,110 @@ export default function PublicPage() {
     }
   }
 
+  // Suscribirse a cambios del evento en tiempo real
+  useEffect(() => {
+    if (!event) return
+
+    const unsubscribeEvent = subscribeToEvent(event.id, (updatedEvent) => {
+      setEvent(updatedEvent)
+    })
+
+    return () => unsubscribeEvent()
+  }, [event?.id])
+
   // Suscribirse a cambios en tiempo real
   useEffect(() => {
     if (!event) return
 
     const unsubscribe = subscribeToMessages(event.id, (newMessages) => {
-      console.log('🔍 Pantalla pública - Todos los mensajes recibidos:', newMessages.map(m => ({
-        id: m.id, 
-        status: m.status, 
-        message: m.message.substring(0, 50) + '...',
-        guestName: m.guestName
-      })))
+      // Solo actualizar si realmente hay cambios
+      const currentApprovedIds = new Set(
+        newMessages.filter(m => m.status === 'approved').map(m => m.id)
+      )
+      const previousApprovedIds = new Set(
+        previousMessagesRef.current.filter(m => m.status === 'approved').map(m => m.id)
+      )
       
-      const approvedMessages = newMessages.filter(m => m.status === 'approved')
-      console.log('✅ Pantalla pública - Mensajes aprobados:', approvedMessages.map(m => ({
-        id: m.id, 
-        message: m.message.substring(0, 50) + '...',
-        guestName: m.guestName
-      })))
-      
-      // Detectar mensajes nuevos
-      if (messages.length > 0 && approvedMessages.length > messages.filter(m => m.status === 'approved').length) {
-        console.log('🎉 Nuevo mensaje aprobado detectado!')
-        setNewMessageCount(prev => prev + 1)
-        setShowNewMessageEffect(true)
-        setTimeout(() => {
-          setShowNewMessageEffect(false)
-        }, 3000)
-      }
+      // Actualizar mensajes
+      previousMessagesRef.current = newMessages
       setMessages(newMessages)
     })
 
     return () => unsubscribe()
-  }, [event])
+  }, [event?.id])
+
+  // Detectar mensajes nuevos y aplicar efectos
+  useEffect(() => {
+    if (!event || messages.length === 0) return
+
+    const approvedMessages = messages.filter(m => m.status === 'approved')
+    const effects = event.effects || {}
+    
+    // Detectar mensajes realmente nuevos (no procesados antes)
+    const newMessageIds = approvedMessages
+      .filter(m => !processedMessagesRef.current.has(m.id))
+      .map(m => m.id)
+
+    if (newMessageIds.length > 0) {
+      console.log('🎉 Nuevo mensaje aprobado detectado!', newMessageIds)
+      
+      // Marcar como procesados
+      newMessageIds.forEach(id => processedMessagesRef.current.add(id))
+      
+      setNewMessageCount(prev => prev + 1)
+      setShowNewMessageEffect(true)
+      setTimeout(() => {
+        setShowNewMessageEffect(false)
+      }, 3000)
+
+      // Aplicar efectos según configuración
+      if (effects.shake) {
+        setShouldShake(true)
+        setTimeout(() => setShouldShake(false), 1000)
+      }
+
+      // Aplicar efectos visuales después de que el DOM se actualice
+      setTimeout(() => {
+        newMessageIds.forEach((msgId) => {
+          const messageElement = messageRefs.current.get(msgId)
+          if (messageElement) {
+            const rect = messageElement.getBoundingClientRect()
+            const x = rect.left + rect.width / 2
+            const y = rect.top + rect.height / 2
+            
+            // Efecto de ondas expansivas
+            if (effects.rippleWaves) {
+              const waveId = `wave-${msgId}-${Date.now()}`
+              setRippleWaves(prev => [...prev, { id: waveId, x, y }])
+              
+              setTimeout(() => {
+                setRippleWaves(prev => prev.filter(w => w.id !== waveId))
+              }, 2000)
+            }
+
+            // Efecto de partículas brillantes
+            if (effects.sparkleParticles) {
+              // Crear múltiples partículas
+              for (let i = 0; i < 20; i++) {
+                const particleId = `particle-${msgId}-${Date.now()}-${i}`
+                const angle = (Math.PI * 2 * i) / 20
+                const distance = 50 + Math.random() * 100
+                setSparkleParticles(prev => [...prev, { 
+                  id: particleId, 
+                  x: x + Math.cos(angle) * distance, 
+                  y: y + Math.sin(angle) * distance 
+                }])
+                
+                setTimeout(() => {
+                  setSparkleParticles(prev => prev.filter(p => p.id !== particleId))
+                }, 1500)
+              }
+            }
+          }
+        })
+      }, 200) // Delay para asegurar que el DOM esté actualizado
+    }
+  }, [messages, event?.id])
 
   // Scroll automático cuando cambian los mensajes
   useEffect(() => {
@@ -118,6 +195,7 @@ export default function PublicPage() {
       }, 100)
     }
   }, [messages])
+
 
   if (isLoading) {
     return (
@@ -145,10 +223,10 @@ export default function PublicPage() {
   // Invertir orden: más antiguos arriba, más recientes abajo (como WhatsApp)
   const approvedMessages = messages.filter(m => m.status === 'approved').reverse()
   const messagesToShow = approvedMessages
-  
+
   return (
     <div 
-      className="min-h-screen relative"
+      className={`min-h-screen relative ${shouldShake ? 'shake-effect' : ''} ${event.effects?.neonLights ? 'neon-lights-effect' : ''}`}
       style={{ 
         backgroundColor: event.backgroundColor,
         color: event.textColor,
@@ -159,6 +237,29 @@ export default function PublicPage() {
         backgroundAttachment: 'fixed'
       }}
     >
+      {/* Ondas Expansivas */}
+      {rippleWaves.map((wave) => (
+        <div
+          key={wave.id}
+          className="ripple-wave"
+          style={{
+            left: `${wave.x}px`,
+            top: `${wave.y}px`,
+          }}
+        />
+      ))}
+
+      {/* Partículas Brillantes */}
+      {sparkleParticles.map((particle) => (
+        <div
+          key={particle.id}
+          className="sparkle-particle"
+          style={{
+            left: `${particle.x}px`,
+            top: `${particle.y}px`,
+          }}
+        />
+      ))}
       {/* Logo en posición absoluta */}
       {event.logo && (
         <div 
@@ -191,7 +292,7 @@ export default function PublicPage() {
 
       {/* Header */}
       <div 
-        className="border-b p-6 relative"
+        className={`border-b p-6 relative ${event.effects?.neonLights ? 'neon-lights-effect' : ''}`}
         style={{ 
           backgroundColor: event.backgroundImage ? 'rgba(0,0,0,0.7)' : undefined,
           backdropFilter: event.backgroundImage ? 'blur(10px)' : undefined
@@ -199,16 +300,16 @@ export default function PublicPage() {
       >
         {/* Efecto de mensaje nuevo */}
         {showNewMessageEffect && (
-          <div className="absolute top-4 right-4 animate-bounceIn">
-            <div className="bg-green-500 text-white px-4 py-2 rounded-full flex items-center space-x-2 shadow-lg">
-              <Sparkles className="w-4 h-4" />
-              <span className="text-sm font-semibold">¡Nuevo mensaje!</span>
+          <div className="absolute top-4 right-4 animate-bounceIn z-20">
+            <div className="bg-green-500 text-white px-6 py-3 rounded-full flex items-center space-x-2 shadow-2xl border-2 border-white">
+              <Sparkles className="w-5 h-5 animate-pulse" />
+              <span className="text-base font-bold">¡Nuevo mensaje!</span>
             </div>
           </div>
         )}
         
         <div className="max-w-4xl mx-auto text-center">
-          <h1 className="text-4xl font-bold mb-2">
+          <h1 className={`text-4xl font-bold mb-2 ${event.effects?.neonLights ? 'neon-lights-effect' : ''}`}>
             {event.displayName}
           </h1>
           <div className="flex items-center justify-center opacity-90">
@@ -263,7 +364,12 @@ export default function PublicPage() {
                       </div>
                       
                       {/* Burbuja de mensaje */}
-                      <div className="whatsapp-bubble-other relative">
+                      <div 
+                        ref={(el) => {
+                          if (el) messageRefs.current.set(message.id, el)
+                        }}
+                        className={`whatsapp-bubble-other relative ${event.effects?.neonLights ? 'neon-lights-effect' : ''}`}
+                      >
                         <div className="text-gray-800 break-words">
                           {message.message}
                         </div>

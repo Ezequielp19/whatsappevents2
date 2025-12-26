@@ -3,7 +3,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { 
   createEvent, 
-  Event 
+  Event,
+  updateEventEffects,
+  subscribeToEvent
 } from '@/lib/firebase'
 import { subscribeToMessages, approveMessage, rejectMessage, Message } from '@/lib/pusher-messages'
 import QRCode from 'qrcode'
@@ -15,7 +17,12 @@ import {
   Monitor,
   Play,
   Eye,
-  Users
+  Users,
+  Sparkles,
+  Zap,
+  Lightbulb,
+  Waves,
+  Star
 } from 'lucide-react'
 import EventCustomizationModal, { EventCustomizationData } from '../components/EventCustomizationModal'
 import Image from 'next/image'
@@ -106,15 +113,61 @@ export default function AdminPage() {
     }
   }
 
+  // Actualizar efectos
+  const handleEffectToggle = async (effectName: 'shake' | 'neonLights' | 'rippleWaves' | 'sparkleParticles', enabled: boolean) => {
+    if (!event) return
+    
+    try {
+      const currentEffects = event.effects || {
+        shake: false,
+        neonLights: false,
+        rippleWaves: false,
+        sparkleParticles: false
+      }
+      
+      // Contar efectos activos actualmente
+      const activeEffectsCount = Object.values(currentEffects).filter(Boolean).length
+      
+      // Si está intentando activar un efecto y ya hay 2 activos, prevenir
+      if (enabled && activeEffectsCount >= 2 && !currentEffects[effectName]) {
+        alert('⚠️ Solo puedes tener máximo 2 efectos activos a la vez para mantener el rendimiento del sistema. Desactiva uno primero.')
+        return
+      }
+      
+      const updatedEffects = {
+        ...currentEffects,
+        [effectName]: enabled
+      }
+      
+      await updateEventEffects(event.id, updatedEffects)
+      
+      // Actualizar el estado local
+      setEvent({
+        ...event,
+        effects: updatedEffects
+      })
+    } catch (error) {
+      console.error('Error updating effects:', error)
+      alert('Error al actualizar los efectos')
+    }
+  }
+
   // Suscribirse a cambios en tiempo real
   useEffect(() => {
     if (!event) return
 
-    const unsubscribe = subscribeToMessages(event.id, (messages) => {
+    const unsubscribeMessages = subscribeToMessages(event.id, (messages) => {
       setMessages(messages)
     })
 
-    return () => unsubscribe()
+    const unsubscribeEvent = subscribeToEvent(event.id, (updatedEvent) => {
+      setEvent(updatedEvent)
+    })
+
+    return () => {
+      unsubscribeMessages()
+      unsubscribeEvent()
+    }
   }, [event])
 
   // Los mensajes se cargan automáticamente con la suscripción de Pusher
@@ -351,6 +404,155 @@ export default function AdminPage() {
                 >
                   Descargar PDF de invitados aprobados
                 </button>
+              </div>
+
+              {/* Efectos */}
+              <div className="bg-white rounded-lg shadow-lg p-6">
+                <h3 className="text-lg font-semibold mb-4 flex items-center">
+                  <Sparkles className="w-5 h-5 mr-2" />
+                  Efectos Visuales
+                </h3>
+                
+                {/* Explicación */}
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-800 font-medium mb-2 flex items-center">
+                    <Sparkles className="w-4 h-4 mr-1" />
+                    ¿Cómo funcionan los efectos?
+                  </p>
+                  <div className="text-xs text-blue-700 space-y-2">
+                    <p>
+                      <strong>⚠️ Importante:</strong> Los efectos <strong>solo se activan cuando apruebas un mensaje nuevo</strong>. 
+                      No se aplican a mensajes que ya estaban aprobados.
+                    </p>
+                    <p>
+                      <strong>📊 Límite:</strong> Puedes activar <strong>máximo 2 efectos a la vez</strong> para mantener el rendimiento del sistema. 
+                      Si tienes 2 efectos activados, ambos se mostrarán simultáneamente cuando llegue un nuevo mensaje aprobado.
+                    </p>
+                    <p className="text-blue-600 italic">
+                      💡 Tip: Activa hasta 2 efectos y luego aprueba un mensaje para verlos en acción en la pantalla pública.
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="space-y-3">
+                  {/* Contador de efectos activos */}
+                  {(() => {
+                    const activeCount = Object.values(event.effects || {}).filter(Boolean).length
+                    return activeCount > 0 && (
+                      <div className="mb-2 p-2 bg-gray-100 rounded text-xs text-gray-600 text-center">
+                        Efectos activos: <strong>{activeCount}/2</strong>
+                      </div>
+                    )
+                  })()}
+                  
+                  {/* Pantalla Movediza */}
+                  {(() => {
+                    const activeCount = Object.values(event.effects || {}).filter(Boolean).length
+                    const isMaxReached = activeCount >= 2 && !event.effects?.shake
+                    return (
+                      <div className={`flex items-center justify-between p-3 border rounded-lg transition-colors ${isMaxReached ? 'opacity-50 bg-gray-50' : 'hover:bg-gray-50'}`}>
+                        <div className="flex items-center">
+                          <Zap className="w-5 h-5 mr-2 text-yellow-500" />
+                          <div>
+                            <p className="font-medium text-sm">Pantalla Movediza</p>
+                            <p className="text-xs text-gray-500">Efecto de temblor en la pantalla</p>
+                          </div>
+                        </div>
+                        <label className={`relative inline-flex items-center ${isMaxReached ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
+                          <input
+                            type="checkbox"
+                            checked={event.effects?.shake || false}
+                            onChange={(e) => handleEffectToggle('shake', e.target.checked)}
+                            disabled={isMaxReached}
+                            className="sr-only peer"
+                          />
+                          <div className={`w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500 ${isMaxReached ? 'opacity-50' : ''}`}></div>
+                        </label>
+                      </div>
+                    )
+                  })()}
+
+                  {/* Ondas Expansivas */}
+                  {(() => {
+                    const activeCount = Object.values(event.effects || {}).filter(Boolean).length
+                    const isMaxReached = activeCount >= 2 && !event.effects?.rippleWaves
+                    return (
+                      <div className={`flex items-center justify-between p-3 border rounded-lg transition-colors ${isMaxReached ? 'opacity-50 bg-gray-50' : 'hover:bg-gray-50'}`}>
+                        <div className="flex items-center">
+                          <Waves className="w-5 h-5 mr-2 text-blue-500" />
+                          <div>
+                            <p className="font-medium text-sm">Ondas Expansivas</p>
+                            <p className="text-xs text-gray-500">Ondas que se expanden desde los mensajes</p>
+                          </div>
+                        </div>
+                        <label className={`relative inline-flex items-center ${isMaxReached ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
+                          <input
+                            type="checkbox"
+                            checked={event.effects?.rippleWaves || false}
+                            onChange={(e) => handleEffectToggle('rippleWaves', e.target.checked)}
+                            disabled={isMaxReached}
+                            className="sr-only peer"
+                          />
+                          <div className={`w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500 ${isMaxReached ? 'opacity-50' : ''}`}></div>
+                        </label>
+                      </div>
+                    )
+                  })()}
+
+                  {/* Partículas Brillantes */}
+                  {(() => {
+                    const activeCount = Object.values(event.effects || {}).filter(Boolean).length
+                    const isMaxReached = activeCount >= 2 && !event.effects?.sparkleParticles
+                    return (
+                      <div className={`flex items-center justify-between p-3 border rounded-lg transition-colors ${isMaxReached ? 'opacity-50 bg-gray-50' : 'hover:bg-gray-50'}`}>
+                        <div className="flex items-center">
+                          <Star className="w-5 h-5 mr-2 text-yellow-500" />
+                          <div>
+                            <p className="font-medium text-sm">Partículas Brillantes</p>
+                            <p className="text-xs text-gray-500">Explosión de partículas doradas</p>
+                          </div>
+                        </div>
+                        <label className={`relative inline-flex items-center ${isMaxReached ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
+                          <input
+                            type="checkbox"
+                            checked={event.effects?.sparkleParticles || false}
+                            onChange={(e) => handleEffectToggle('sparkleParticles', e.target.checked)}
+                            disabled={isMaxReached}
+                            className="sr-only peer"
+                          />
+                          <div className={`w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500 ${isMaxReached ? 'opacity-50' : ''}`}></div>
+                        </label>
+                      </div>
+                    )
+                  })()}
+
+                  {/* Luces Neon */}
+                  {(() => {
+                    const activeCount = Object.values(event.effects || {}).filter(Boolean).length
+                    const isMaxReached = activeCount >= 2 && !event.effects?.neonLights
+                    return (
+                      <div className={`flex items-center justify-between p-3 border rounded-lg transition-colors ${isMaxReached ? 'opacity-50 bg-gray-50' : 'hover:bg-gray-50'}`}>
+                        <div className="flex items-center">
+                          <Lightbulb className="w-5 h-5 mr-2 text-cyan-500" />
+                          <div>
+                            <p className="font-medium text-sm">Luces Neon</p>
+                            <p className="text-xs text-gray-500">Efecto de luces neón brillantes</p>
+                          </div>
+                        </div>
+                        <label className={`relative inline-flex items-center ${isMaxReached ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
+                          <input
+                            type="checkbox"
+                            checked={event.effects?.neonLights || false}
+                            onChange={(e) => handleEffectToggle('neonLights', e.target.checked)}
+                            disabled={isMaxReached}
+                            className="sr-only peer"
+                          />
+                          <div className={`w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500 ${isMaxReached ? 'opacity-50' : ''}`}></div>
+                        </label>
+                      </div>
+                    )
+                  })()}
+                </div>
               </div>
 
               {/* Acciones Rápidas */}
