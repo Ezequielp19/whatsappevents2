@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { 
   createEvent, 
   Event,
@@ -22,8 +22,7 @@ import {
   Zap,
   Lightbulb,
   Waves,
-  Star,
-  Video
+  Star
 } from 'lucide-react'
 import EventCustomizationModal, { EventCustomizationData } from '../components/EventCustomizationModal'
 import Image from 'next/image'

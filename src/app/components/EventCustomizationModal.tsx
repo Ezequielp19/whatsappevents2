@@ -191,7 +191,7 @@ export default function EventCustomizationModal({ isOpen, onClose, onCreateEvent
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error uploading video:', error)
       alert(`Error al subir el video: ${error.message || 'Error desconocido'}`)
     } finally {

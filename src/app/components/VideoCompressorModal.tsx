@@ -241,7 +241,7 @@ export default function VideoCompressorModal({ isOpen, onClose, onVideoCompresse
         URL.revokeObjectURL(videoUrl)
       }, 60000)
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error comprimiendo video:', err)
       setError(err.message || 'Error al comprimir el video. Intenta con otro archivo o uno más corto.')
       setIsCompressing(false)
