@@ -82,32 +82,28 @@ export default function PublicPage() {
   useEffect(() => {
     if (!event) return
 
-    const unsubscribeEvent = subscribeToEvent(event.id, (updatedEvent) => {
+    const eventId = event.id
+    const unsubscribeEvent = subscribeToEvent(eventId, (updatedEvent) => {
       setEvent(updatedEvent)
     })
 
     return () => unsubscribeEvent()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [event?.id])
 
   // Suscribirse a cambios en tiempo real
   useEffect(() => {
     if (!event) return
 
-    const unsubscribe = subscribeToMessages(event.id, (newMessages) => {
-      // Solo actualizar si realmente hay cambios
-      const currentApprovedIds = new Set(
-        newMessages.filter(m => m.status === 'approved').map(m => m.id)
-      )
-      const previousApprovedIds = new Set(
-        previousMessagesRef.current.filter(m => m.status === 'approved').map(m => m.id)
-      )
-      
+    const eventId = event.id
+    const unsubscribe = subscribeToMessages(eventId, (newMessages) => {
       // Actualizar mensajes
       previousMessagesRef.current = newMessages
       setMessages(newMessages)
     })
 
     return () => unsubscribe()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [event?.id])
 
   // Detectar mensajes nuevos y aplicar efectos
@@ -181,6 +177,7 @@ export default function PublicPage() {
         })
       }, 200) // Delay para asegurar que el DOM esté actualizado
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages, event?.id])
 
   // Scroll automático cuando cambian los mensajes
@@ -443,9 +440,11 @@ export default function PublicPage() {
                         </div>
                         {message.image && (
                           <div className="w-[180px] h-32 mt-2 rounded-lg overflow-hidden border shadow-sm">
-                            <img 
+                            <Image 
                               src={message.image} 
                               alt="Imagen enviada" 
+                              width={180}
+                              height={128}
                               className="w-full h-full object-cover" 
                             />
                           </div>
