@@ -176,7 +176,7 @@ export default function AdminPage() {
 
   // Suscribirse a cambios en tiempo real
   useEffect(() => {
-    if (!event) return
+    if (!event?.id) return
 
     const unsubscribeMessages = subscribeToMessages(event.id, (messages) => {
       setMessages(messages)
@@ -190,7 +190,7 @@ export default function AdminPage() {
       unsubscribeMessages()
       unsubscribeEvent()
     }
-  }, [event])
+  }, [event?.id]) // Solo usar event.id como dependencia para evitar ciclos infinitos
 
   // Los mensajes se cargan automáticamente con la suscripción de Pusher
 
