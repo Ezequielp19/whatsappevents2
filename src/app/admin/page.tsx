@@ -87,9 +87,12 @@ export default function AdminPage() {
       const qrUrl = await QRCode.toDataURL(`${window.location.origin}/guest?event=${newEvent.qrCode}`)
       setQrCodeUrl(qrUrl)
       console.log('✅ QR generado exitosamente')
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Error creating event:', error)
-      const errorMessage = error?.message || 'Error desconocido al crear el evento'
+      let errorMessage = 'Error desconocido al crear el evento'
+      if (error && typeof error === 'object' && 'message' in error) {
+        errorMessage = (error as { message?: string }).message || errorMessage
+      }
       alert(`Error al crear el evento: ${errorMessage}\n\nSi subiste un video, puede ser demasiado grande. Intenta con un video más pequeño o comprimido.`)
     } finally {
       setIsLoading(false)
