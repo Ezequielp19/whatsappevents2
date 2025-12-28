@@ -38,8 +38,9 @@ export interface Event {
   displayName: string
   backgroundColor: string
   textColor: string
-  backgroundImage?: string // base64
-  logo?: string // base64
+  backgroundImage?: string // base64 o URL
+  backgroundVideo?: string // URL de Cloudinary
+  logo?: string // base64 o URL
   logoPosition?: 'top-left' | 'top-right' | 'top-center' | 'bottom-left' | 'bottom-right' | 'bottom-center' | 'left' | 'right' | 'center'
   // Efectos
   effects?: {
@@ -65,46 +66,71 @@ export const createEvent = async (
   backgroundColor: string = '#1f2937', 
   textColor: string = '#ffffff',
   backgroundImage?: string,
+  backgroundVideo?: string,
   logo?: string,
   logoPosition?: 'top-left' | 'top-right' | 'top-center' | 'bottom-left' | 'bottom-right' | 'bottom-center' | 'left' | 'right' | 'center'
 ) => {
-  const qrCode = `event_${Date.now()}`
-  const docRef = await addDoc(collection(db, 'events'), {
-    name,
-    qrCode,
-    displayName,
-    backgroundColor,
-    textColor,
-    backgroundImage: backgroundImage || null,
-    logo: logo || null,
-    logoPosition: logoPosition || null,
-    effects: {
-      shake: false,
-      neonLights: false,
-      rippleWaves: false,
-      sparkleParticles: false
-    },
-    createdAt: new Date(),
-    isActive: true
-  })
-  return { 
-    id: docRef.id, 
-    name, 
-    qrCode, 
-    displayName,
-    backgroundColor,
-    textColor,
-    backgroundImage,
-    logo,
-    logoPosition,
-    effects: {
-      shake: false,
-      neonLights: false,
-      rippleWaves: false,
-      sparkleParticles: false
-    },
-    createdAt: new Date(), 
-    isActive: true 
+  try {
+    const qrCode = `event_${Date.now()}`
+    
+    // Preparar datos del evento
+    const eventData: any = {
+      name,
+      qrCode,
+      displayName,
+      backgroundColor,
+      textColor,
+      backgroundImage: backgroundImage || null,
+      backgroundVideo: backgroundVideo || null,
+      logo: logo || null,
+      logoPosition: logoPosition || null,
+      effects: {
+        shake: false,
+        neonLights: false,
+        rippleWaves: false,
+        sparkleParticles: false
+      },
+      createdAt: new Date(),
+      isActive: true
+    }
+
+    console.log('📝 Intentando guardar evento en Firestore...')
+    console.log('📊 Tamaños aproximados:', {
+      backgroundImage: backgroundImage ? `${(backgroundImage.length * 3 / 4 / 1024).toFixed(2)} KB` : 'N/A',
+      backgroundVideo: backgroundVideo ? `${(backgroundVideo.length * 3 / 4 / 1024 / 1024).toFixed(2)} MB` : 'N/A',
+      logo: logo ? `${(logo.length * 3 / 4 / 1024).toFixed(2)} KB` : 'N/A'
+    })
+
+    const docRef = await addDoc(collection(db, 'events'), eventData)
+    console.log('✅ Evento guardado en Firestore con ID:', docRef.id)
+    
+    return { 
+      id: docRef.id, 
+      name, 
+      qrCode, 
+      displayName,
+      backgroundColor,
+      textColor,
+      backgroundImage,
+      backgroundVideo,
+      logo,
+      logoPosition,
+      effects: {
+        shake: false,
+        neonLights: false,
+        rippleWaves: false,
+        sparkleParticles: false
+      },
+      createdAt: new Date(), 
+      isActive: true 
+    }
+  } catch (error: any) {
+    console.error('❌ Error en createEvent:', error)
+    // Si el error es por tamaño, dar un mensaje más específico
+    if (error?.code === 'invalid-argument' || error?.message?.includes('size') || error?.message?.includes('too large')) {
+      throw new Error('El video o imagen es demasiado grande para Firestore. Por favor usa archivos más pequeños.')
+    }
+    throw error
   }
 }
 

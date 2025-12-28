@@ -228,15 +228,83 @@ export default function PublicPage() {
     <div 
       className={`min-h-screen relative ${shouldShake ? 'shake-effect' : ''} ${event.effects?.neonLights ? 'neon-lights-effect' : ''}`}
       style={{ 
-        backgroundColor: event.backgroundColor,
+        backgroundColor: event.backgroundVideo ? 'transparent' : event.backgroundColor,
         color: event.textColor,
-        backgroundImage: event.backgroundImage ? `url(${event.backgroundImage})` : undefined,
+        backgroundImage: event.backgroundImage && !event.backgroundVideo ? `url(${event.backgroundImage})` : undefined,
         backgroundSize: 'cover',
         backgroundRepeat: 'no-repeat',
         backgroundPosition: 'center center',
-        backgroundAttachment: 'fixed'
+        backgroundAttachment: 'fixed',
+        position: 'relative',
+        minHeight: '100vh'
       }}
     >
+      {/* Video de fondo en loop */}
+      {event.backgroundVideo && (
+        <video
+          src={event.backgroundVideo}
+          autoPlay
+          loop
+          muted
+          playsInline
+          preload="auto"
+          className="fixed inset-0 w-full h-full object-cover"
+          style={{ 
+            pointerEvents: 'none',
+            zIndex: -1,
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            height: '100vh',
+            minWidth: '100%',
+            minHeight: '100%'
+          }}
+          onError={(e) => {
+            console.error('Error cargando video:', e)
+            console.log('URL del video:', event.backgroundVideo)
+            const videoElement = e.target as HTMLVideoElement
+            console.log('Error code:', videoElement.error?.code)
+            console.log('Error message:', videoElement.error?.message)
+          }}
+          onLoadedData={() => {
+            console.log('✅ Video cargado exitosamente:', event.backgroundVideo)
+          }}
+          onCanPlay={() => {
+            console.log('✅ Video listo para reproducir')
+            const videoElement = document.querySelector('video') as HTMLVideoElement
+            if (videoElement) {
+              videoElement.play().catch(err => {
+                console.error('Error al reproducir:', err)
+              })
+            }
+          }}
+        >
+          <source src={event.backgroundVideo} type="video/mp4" />
+          <source src={event.backgroundVideo} type="video/webm" />
+          Tu navegador no soporta videos.
+        </video>
+      )}
+      
+      {/* Overlay para mejor legibilidad si hay video */}
+      {event.backgroundVideo && (
+        <div 
+          className="fixed inset-0 bg-black"
+          style={{ 
+            opacity: 0.3,
+            zIndex: 0,
+            pointerEvents: 'none',
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            height: '100vh'
+          }}
+        />
+      )}
+      
+      {/* Contenido con z-index relativo */}
+      <div className="relative" style={{ zIndex: 1, position: 'relative' }}>
       {/* Ondas Expansivas */}
       {rippleWaves.map((wave) => (
         <div
@@ -284,7 +352,7 @@ export default function PublicPage() {
             height={120}
             className="w-24 h-24 md:w-32 md:h-32 object-contain drop-shadow-lg"
             style={{
-              filter: event.backgroundImage ? 'drop-shadow(0 4px 6px rgba(0,0,0,0.5))' : undefined
+              filter: (event.backgroundImage || event.backgroundVideo) ? 'drop-shadow(0 4px 6px rgba(0,0,0,0.5))' : undefined
             }}
           />
         </div>
@@ -294,8 +362,8 @@ export default function PublicPage() {
       <div 
         className={`border-b p-6 relative ${event.effects?.neonLights ? 'neon-lights-effect' : ''}`}
         style={{ 
-          backgroundColor: event.backgroundImage ? 'rgba(0,0,0,0.7)' : undefined,
-          backdropFilter: event.backgroundImage ? 'blur(10px)' : undefined
+          backgroundColor: (event.backgroundImage || event.backgroundVideo) ? 'rgba(0,0,0,0.7)' : undefined,
+          backdropFilter: (event.backgroundImage || event.backgroundVideo) ? 'blur(10px)' : undefined
         }}
       >
         {/* Efecto de mensaje nuevo */}
@@ -324,8 +392,8 @@ export default function PublicPage() {
         <div 
           className="rounded-lg p-4 min-h-[50vh] overflow-y-auto"
           style={{ 
-            backgroundColor: event.backgroundImage ? 'rgba(0,0,0,0.8)' : 'rgba(0,0,0,0.1)',
-            backdropFilter: event.backgroundImage ? 'blur(10px)' : undefined
+            backgroundColor: (event.backgroundImage || event.backgroundVideo) ? 'rgba(0,0,0,0.8)' : 'rgba(0,0,0,0.1)',
+            backdropFilter: (event.backgroundImage || event.backgroundVideo) ? 'blur(10px)' : undefined
           }}
         >
           <div className="space-y-4">
@@ -402,6 +470,7 @@ export default function PublicPage() {
             WhatsApp Events - Mensajes en tiempo real
           </p>
         </div>
+      </div>
       </div>
     </div>
   )

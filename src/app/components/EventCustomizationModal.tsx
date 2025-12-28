@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useRef } from 'react'
-import { X, Palette, Image as ImageIcon, Type, ImagePlus } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { X, Palette, Image as ImageIcon, Type, ImagePlus, Video, AlertCircle } from 'lucide-react'
 import Image from 'next/image'
 
 interface EventCustomizationModalProps {
@@ -16,6 +16,7 @@ export interface EventCustomizationData {
   backgroundColor: string
   textColor: string
   backgroundImage?: string
+  backgroundVideo?: string
   logo?: string
   logoPosition?: 'top-left' | 'top-right' | 'top-center' | 'bottom-left' | 'bottom-right' | 'bottom-center' | 'left' | 'right' | 'center'
 }
@@ -38,12 +39,30 @@ export default function EventCustomizationModal({ isOpen, onClose, onCreateEvent
     backgroundColor: '#1f2937',
     textColor: '#ffffff',
     backgroundImage: undefined,
+    backgroundVideo: undefined,
     logo: undefined,
     logoPosition: 'top-left'
   })
   const [isLoading, setIsLoading] = useState(false)
+  const [isUploadingVideo, setIsUploadingVideo] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const videoInputRef = useRef<HTMLInputElement>(null)
   const logoInputRef = useRef<HTMLInputElement>(null)
+
+  // Tamaño máximo permitido por Firestore (0.9 MB en base64 = ~675 KB de archivo)
+  const MAX_VIDEO_SIZE_BASE64 = 0.9 * 1024 * 1024 // 0.9 MB
+  const MAX_VIDEO_SIZE_FILE = 675 * 1024 // ~675 KB de archivo original
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return bytes + ' B'
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB'
+    return (bytes / (1024 * 1024)).toFixed(2) + ' MB'
+  }
+
+  const getBase64Size = (base64String: string): number => {
+    // Base64 aumenta el tamaño en ~33%, así que el tamaño real es menor
+    return (base64String.length * 3) / 4
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -60,9 +79,12 @@ export default function EventCustomizationModal({ isOpen, onClose, onCreateEvent
         backgroundColor: '#1f2937',
         textColor: '#ffffff',
         backgroundImage: undefined,
+        backgroundVideo: undefined,
         logo: undefined,
         logoPosition: 'top-left'
       })
+      if (fileInputRef.current) fileInputRef.current.value = ''
+      if (videoInputRef.current) videoInputRef.current.value = ''
     } catch (error) {
       console.error('Error creating event:', error)
     } finally {
@@ -98,6 +120,89 @@ export default function EventCustomizationModal({ isOpen, onClose, onCreateEvent
     setFormData(prev => ({ ...prev, backgroundImage: undefined }))
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
+    }
+  }
+
+  // Función para subir video a Cloudinary
+  const uploadVideoToCloudinary = async (file: File): Promise<string> => {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('upload_preset', 'ml_default') // Mismo preset que las imágenes
+    formData.append('resource_type', 'video') // Especificar que es un video
+
+    const response = await fetch('https://api.cloudinary.com/v1_1/dncqwpyua/video/upload', {
+      method: 'POST',
+      body: formData,
+    })
+
+    if (!response.ok) {
+      throw new Error('Error al subir el video a Cloudinary')
+    }
+
+    const result = await response.json()
+    if (!result.secure_url) {
+      throw new Error('Error: No se recibió la URL del video')
+    }
+
+    return result.secure_url
+  }
+
+  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Validar tipo
+    if (!file.type.startsWith('video/')) {
+      alert('Por favor selecciona un video válido')
+      if (videoInputRef.current) {
+        videoInputRef.current.value = ''
+      }
+      return
+    }
+
+    // Validar tamaño (máximo 100MB para Cloudinary free tier)
+    const maxSize = 100 * 1024 * 1024 // 100MB
+    if (file.size > maxSize) {
+      alert(
+        `⚠️ El video es demasiado grande (${formatFileSize(file.size)}).\n\n` +
+        `El tamaño máximo permitido es ${formatFileSize(maxSize)}.\n\n` +
+        `Por favor, comprime tu video antes de subirlo usando una herramienta online como:\n` +
+        `• https://www.freeconvert.com/video-compressor\n` +
+        `• https://www.compresss.com/\n` +
+        `• https://www.youcompress.com/`
+      )
+      if (videoInputRef.current) {
+        videoInputRef.current.value = ''
+      }
+      return
+    }
+
+    // Mostrar indicador de carga
+    setIsUploadingVideo(true)
+
+    try {
+      // Subir a Cloudinary
+      const videoUrl = await uploadVideoToCloudinary(file)
+      
+      // Guardar la URL en lugar de base64
+      setFormData(prev => ({ ...prev, backgroundVideo: videoUrl, backgroundImage: undefined }))
+      
+      // Limpiar imagen si había una
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    } catch (error: any) {
+      console.error('Error uploading video:', error)
+      alert(`Error al subir el video: ${error.message || 'Error desconocido'}`)
+    } finally {
+      setIsUploadingVideo(false)
+    }
+  }
+
+  const removeVideo = () => {
+    setFormData(prev => ({ ...prev, backgroundVideo: undefined }))
+    if (videoInputRef.current) {
+      videoInputRef.current.value = ''
     }
   }
 
@@ -344,65 +449,152 @@ export default function EventCustomizationModal({ isOpen, onClose, onCreateEvent
             )}
           </div>
 
-          {/* Imagen de fondo */}
+          {/* Imagen o Video de fondo */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-gray-800 flex items-center">
               <ImageIcon className="w-5 h-5 mr-2" />
-              Imagen de Fondo (Opcional)
+              Fondo de Pantalla (Opcional)
             </h3>
+            <p className="text-xs text-gray-600 mb-3">
+              Puedes elegir una imagen estática o un video que se reproducirá en loop
+            </p>
 
-            <div>
+            {/* Información sobre videos */}
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+              <div className="flex items-start">
+                <AlertCircle className="w-5 h-5 text-green-600 mr-2 mt-0.5 flex-shrink-0" />
+                <div className="text-sm text-green-800">
+                  <p className="font-medium mb-2">✅ Videos almacenados en Cloudinary (Gratis):</p>
+                  <p className="mb-2">
+                    Los videos se suben a <strong>Cloudinary</strong> (servicio gratuito) y se guarda solo la URL en Firestore. 
+                    Esto permite videos de hasta <strong>100MB</strong> sin problemas de rendimiento.
+                  </p>
+                  <p className="mb-2">
+                    <strong>Recomendaciones para mejor rendimiento:</strong>
+                  </p>
+                  <ul className="list-disc list-inside mb-2 space-y-1">
+                    <li>Videos cortos (10-30 segundos funcionan mejor)</li>
+                    <li>Resolución moderada (720p o menos)</li>
+                    <li>Formato MP4 o WebM</li>
+                  </ul>
+                  <p className="text-xs text-green-700 italic">
+                    💡 Cloudinary optimiza automáticamente los videos para mejor rendimiento.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Video */}
+            <div className="mb-4">
               <input
-                ref={fileInputRef}
+                ref={videoInputRef}
                 type="file"
-                accept="image/*"
-                onChange={handleImageUpload}
+                accept="video/*"
+                onChange={handleVideoUpload}
                 className="hidden"
+                disabled={isUploadingVideo}
               />
               
-              {formData.backgroundImage ? (
+              {isUploadingVideo ? (
+                <div className="w-full border-2 border-dashed border-blue-300 rounded-lg p-8 text-center bg-blue-50">
+                  <div className="flex flex-col items-center justify-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
+                    <p className="text-blue-700 font-medium">Subiendo video...</p>
+                    <p className="text-xs text-blue-600 mt-2">Por favor espera, esto puede tomar unos momentos</p>
+                  </div>
+                </div>
+              ) : formData.backgroundVideo ? (
                 <div className="space-y-3">
                   <div className="relative">
-                    <Image
-                      src={formData.backgroundImage}
-                      alt="Preview"
-                      width={400}
-                      height={192}
+                    <video
+                      src={formData.backgroundVideo}
                       className="w-full h-48 object-cover rounded-lg border"
+                      controls
+                      muted
                     />
                     <button
                       type="button"
-                      onClick={removeImage}
+                      onClick={removeVideo}
                       className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
                     >
                       <X className="w-4 h-4" />
                     </button>
                   </div>
                   <p className="text-sm text-gray-600">
-                    ✅ Imagen cargada. Se mostrará como fondo en la pantalla pública.
+                    ✅ Video cargado. Se reproducirá en loop en la pantalla pública.
                   </p>
                 </div>
               ) : (
                 <div>
                   <button
                     type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="w-full border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors"
+                    onClick={() => videoInputRef.current?.click()}
+                    disabled={isUploadingVideo}
+                    className="w-full border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-gray-400 transition-colors mb-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <ImageIcon className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-                    <p className="text-gray-600">Haz clic para subir una imagen</p>
-                    <p className="text-sm text-gray-500 mt-1">Máximo 2MB</p>
+                    <Video className="w-6 h-6 mx-auto mb-2 text-gray-400" />
+                    <p className="text-gray-600 text-sm">Subir Video</p>
+                    <p className="text-xs text-gray-500 mt-1">Máximo 100MB - Se almacenará en Cloudinary (gratis)</p>
                   </button>
                 </div>
               )}
             </div>
+
+            {/* Imagen (solo si no hay video) */}
+            {!formData.backgroundVideo && (
+              <div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
+                
+                {formData.backgroundImage ? (
+                  <div className="space-y-3">
+                    <div className="relative">
+                      <Image
+                        src={formData.backgroundImage}
+                        alt="Preview"
+                        width={400}
+                        height={192}
+                        className="w-full h-48 object-cover rounded-lg border"
+                      />
+                      <button
+                        type="button"
+                        onClick={removeImage}
+                        className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <p className="text-sm text-gray-600">
+                      ✅ Imagen cargada. Se mostrará como fondo en la pantalla pública.
+                    </p>
+                  </div>
+                ) : (
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="w-full border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-gray-400 transition-colors"
+                    >
+                      <ImageIcon className="w-6 h-6 mx-auto mb-2 text-gray-400" />
+                      <p className="text-gray-600 text-sm">Subir Imagen</p>
+                      <p className="text-xs text-gray-500 mt-1">Máximo 2MB</p>
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Preview */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-gray-800">Vista Previa</h3>
             <div 
-              className="p-6 rounded-lg border relative"
+              className="p-6 rounded-lg border relative overflow-hidden"
               style={{ 
                 backgroundColor: formData.backgroundColor,
                 color: formData.textColor,
@@ -413,6 +605,18 @@ export default function EventCustomizationModal({ isOpen, onClose, onCreateEvent
                 minHeight: '200px'
               }}
             >
+              {/* Video de fondo en preview */}
+              {formData.backgroundVideo && (
+                <video
+                  src={formData.backgroundVideo}
+                  className="absolute inset-0 w-full h-full object-cover z-0"
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                />
+              )}
+              <div className="relative z-10">
               {/* Logo en preview */}
               {formData.logo && (
                 <div 
@@ -443,6 +647,7 @@ export default function EventCustomizationModal({ isOpen, onClose, onCreateEvent
               </h2>
               <div className="flex items-center justify-center text-sm opacity-90" style={{ color: formData.textColor }}>
                 <span>Escaneá el QR para participar</span>
+              </div>
               </div>
             </div>
           </div>
