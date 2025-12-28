@@ -193,7 +193,11 @@ export default function EventCustomizationModal({ isOpen, onClose, onCreateEvent
       }
     } catch (error: unknown) {
       console.error('Error uploading video:', error)
-      alert(`Error al subir el video: ${error.message || 'Error desconocido'}`)
+      let errorMessage = 'Error desconocido';
+      if (error && typeof error === 'object' && 'message' in error) {
+        errorMessage = (error as { message?: string }).message || errorMessage;
+      }
+      alert(`Error al subir el video: ${errorMessage}`)
     } finally {
       setIsUploadingVideo(false)
     }
