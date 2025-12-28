@@ -243,7 +243,11 @@ export default function VideoCompressorModal({ isOpen, onClose, onVideoCompresse
 
     } catch (err: unknown) {
       console.error('Error comprimiendo video:', err)
-      setError(err.message || 'Error al comprimir el video. Intenta con otro archivo o uno más corto.')
+      let errorMessage = 'Error al comprimir el video. Intenta con otro archivo o uno más corto.'
+      if (err && typeof err === 'object' && 'message' in err) {
+        errorMessage = (err as { message?: string }).message || errorMessage
+      }
+      setError(errorMessage)
       setIsCompressing(false)
     }
   }
