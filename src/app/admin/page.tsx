@@ -178,11 +178,13 @@ export default function AdminPage() {
   useEffect(() => {
     if (!event?.id) return
 
-    const unsubscribeMessages = subscribeToMessages(event.id, (messages) => {
+    const eventId = event.id
+
+    const unsubscribeMessages = subscribeToMessages(eventId, (messages) => {
       setMessages(messages)
     })
 
-    const unsubscribeEvent = subscribeToEvent(event.id, (updatedEvent) => {
+    const unsubscribeEvent = subscribeToEvent(eventId, (updatedEvent) => {
       setEvent(updatedEvent)
     })
 
@@ -190,6 +192,7 @@ export default function AdminPage() {
       unsubscribeMessages()
       unsubscribeEvent()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [event?.id]) // Solo usar event.id como dependencia para evitar ciclos infinitos
 
   // Los mensajes se cargan automáticamente con la suscripción de Pusher
@@ -326,9 +329,11 @@ export default function AdminPage() {
                         <p className="text-gray-900 mb-3 font-medium">{message.message}</p>
                         {message.image && (
                           <div className="mb-3">
-                            <img 
+                            <Image 
                               src={message.image} 
                               alt="Imagen del mensaje" 
+                              width={400}
+                              height={192}
                               className="max-w-full h-auto max-h-48 rounded-lg border"
                             />
                           </div>
@@ -383,9 +388,11 @@ export default function AdminPage() {
                         <p className="text-gray-900 mb-3 font-medium">{message.message}</p>
                         {message.image && (
                           <div className="mb-3">
-                            <img 
+                            <Image 
                               src={message.image} 
                               alt="Imagen del mensaje" 
+                              width={400}
+                              height={192}
                               className="max-w-full h-auto max-h-48 rounded-lg border"
                             />
                           </div>

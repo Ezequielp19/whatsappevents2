@@ -74,7 +74,25 @@ export const createEvent = async (
     const qrCode = `event_${Date.now()}`
     
     // Preparar datos del evento
-    const eventData: any = {
+    const eventData: {
+      name: string
+      qrCode: string
+      displayName: string
+      backgroundColor: string
+      textColor: string
+      backgroundImage: string | null
+      backgroundVideo: string | null
+      logo: string | null
+      logoPosition: 'top-left' | 'top-right' | 'top-center' | 'bottom-left' | 'bottom-right' | 'bottom-center' | 'left' | 'right' | 'center' | null
+      effects: {
+        shake: boolean
+        neonLights: boolean
+        rippleWaves: boolean
+        sparkleParticles: boolean
+      }
+      createdAt: Date
+      isActive: boolean
+    } = {
       name,
       qrCode,
       displayName,
@@ -124,10 +142,11 @@ export const createEvent = async (
       createdAt: new Date(), 
       isActive: true 
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('❌ Error en createEvent:', error)
     // Si el error es por tamaño, dar un mensaje más específico
-    if (error?.code === 'invalid-argument' || error?.message?.includes('size') || error?.message?.includes('too large')) {
+    const firebaseError = error as { code?: string; message?: string }
+    if (firebaseError?.code === 'invalid-argument' || firebaseError?.message?.includes('size') || firebaseError?.message?.includes('too large')) {
       throw new Error('El video o imagen es demasiado grande para Firestore. Por favor usa archivos más pequeños.')
     }
     throw error
