@@ -1,19 +1,19 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { 
-  createEvent, 
+import {
+  createEvent,
   Event,
   updateEventEffects,
   subscribeToEvent
 } from '@/lib/firebase'
 import { subscribeToMessages, approveMessage, rejectMessage, Message } from '@/lib/pusher-messages'
 import QRCode from 'qrcode'
-import { 
-  MessageCircle, 
-  Check, 
-  X, 
-  QrCode, 
+import {
+  MessageCircle,
+  Check,
+  X,
+  QrCode,
   Monitor,
   Play,
   Eye,
@@ -38,9 +38,9 @@ export default function AdminPage() {
   // Función helper para convertir fechas de Firebase
   const formatDate = (date: Date | { seconds: number } | string | number | null | undefined) => {
     if (!date) return '--:--'
-    
+
     let dateObj: Date
-    
+
     // Si es un Timestamp de Firebase
     if (date && typeof date === 'object' && 'seconds' in date && typeof date.seconds === 'number') {
       dateObj = new Date(date.seconds * 1000)
@@ -51,12 +51,12 @@ export default function AdminPage() {
     } else {
       return '--:--'
     }
-    
+
     // Verificar si la fecha es válida
     if (isNaN(dateObj.getTime())) {
       return '--:--'
     }
-    
+
     return dateObj.toLocaleString('es-ES')
   }
 
@@ -76,12 +76,14 @@ export default function AdminPage() {
         data.backgroundImage,
         data.backgroundVideo,
         data.logo,
-        data.logoPosition
+        data.logoPosition,
+        data.waitingScreenImage,
+        data.waitingScreenVideo
       )
       console.log('✅ Evento creado exitosamente:', newEvent.id)
-      
+
       setEvent(newEvent)
-      
+
       // Generar QR
       console.log('🔄 Generando QR...')
       const qrUrl = await QRCode.toDataURL(`${window.location.origin}/guest?event=${newEvent.qrCode}`)
@@ -129,7 +131,7 @@ export default function AdminPage() {
   // Actualizar efectos
   const handleEffectToggle = async (effectName: 'shake' | 'neonLights' | 'rippleWaves' | 'sparkleParticles', enabled: boolean) => {
     if (!event) return
-    
+
     try {
       const currentEffects = event.effects || {
         shake: false,
@@ -137,7 +139,7 @@ export default function AdminPage() {
         rippleWaves: false,
         sparkleParticles: false
       }
-      
+
       // Si se está activando un efecto, desactivar todos los demás primero
       if (enabled) {
         const updatedEffects = {
@@ -147,9 +149,9 @@ export default function AdminPage() {
           sparkleParticles: false,
           [effectName]: true
         }
-        
+
         await updateEventEffects(event.id, updatedEffects)
-        
+
         // Actualizar el estado local
         setEvent({
           ...event,
@@ -161,9 +163,9 @@ export default function AdminPage() {
           ...currentEffects,
           [effectName]: false
         }
-        
+
         await updateEventEffects(event.id, updatedEffects)
-        
+
         // Actualizar el estado local
         setEvent({
           ...event,
@@ -331,9 +333,9 @@ export default function AdminPage() {
                         <p className="text-gray-900 mb-3 font-medium">{message.message}</p>
                         {message.image && (
                           <div className="mb-3">
-                            <Image 
-                              src={message.image} 
-                              alt="Imagen del mensaje" 
+                            <Image
+                              src={message.image}
+                              alt="Imagen del mensaje"
                               width={400}
                               height={192}
                               className="max-w-full h-auto max-h-48 rounded-lg border"
@@ -390,9 +392,9 @@ export default function AdminPage() {
                         <p className="text-gray-900 mb-3 font-medium">{message.message}</p>
                         {message.image && (
                           <div className="mb-3">
-                            <Image 
-                              src={message.image} 
-                              alt="Imagen del mensaje" 
+                            <Image
+                              src={message.image}
+                              alt="Imagen del mensaje"
                               width={400}
                               height={192}
                               className="max-w-full h-auto max-h-48 rounded-lg border"
@@ -443,7 +445,7 @@ export default function AdminPage() {
                   <Sparkles className="w-5 h-5 mr-2" />
                   Efectos Visuales
                 </h3>
-                
+
                 {/* Explicación */}
                 <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                   <p className="text-sm text-blue-800 font-medium mb-2 flex items-center">
@@ -452,11 +454,11 @@ export default function AdminPage() {
                   </p>
                   <div className="text-xs text-blue-700 space-y-2">
                     <p>
-                      <strong>⚠️ Importante:</strong> Los efectos <strong>solo se activan cuando apruebas un mensaje nuevo</strong>. 
+                      <strong>⚠️ Importante:</strong> Los efectos <strong>solo se activan cuando apruebas un mensaje nuevo</strong>.
                       No se aplican a mensajes que ya estaban aprobados.
                     </p>
                     <p>
-                      <strong>📊 Límite:</strong> Solo puedes activar <strong>un efecto a la vez</strong> para mantener el rendimiento del sistema. 
+                      <strong>📊 Límite:</strong> Solo puedes activar <strong>un efecto a la vez</strong> para mantener el rendimiento del sistema.
                       Cuando actives un efecto, el anterior se desactivará automáticamente.
                     </p>
                     <p className="text-blue-600 italic">
@@ -464,7 +466,7 @@ export default function AdminPage() {
                     </p>
                   </div>
                 </div>
-                
+
                 <div className="space-y-3">
                   {/* Contador de efectos activos */}
                   {(() => {
@@ -475,7 +477,7 @@ export default function AdminPage() {
                       </div>
                     )
                   })()}
-                  
+
                   {/* Pantalla Movediza */}
                   <div className="flex items-center justify-between p-3 border rounded-lg transition-colors hover:bg-gray-50">
                     <div className="flex items-center">

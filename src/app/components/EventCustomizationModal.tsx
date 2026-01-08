@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { X, Palette, Image as ImageIcon, Type, ImagePlus, Video, AlertCircle } from 'lucide-react'
+import { X, Palette, Image as ImageIcon, Type, ImagePlus, Video, AlertCircle, Monitor } from 'lucide-react'
 import Image from 'next/image'
 
 interface EventCustomizationModalProps {
@@ -19,6 +19,8 @@ export interface EventCustomizationData {
   backgroundVideo?: string
   logo?: string
   logoPosition?: 'top-left' | 'top-right' | 'top-center' | 'bottom-left' | 'bottom-right' | 'bottom-center' | 'left' | 'right' | 'center'
+  waitingScreenImage?: string
+  waitingScreenVideo?: string
 }
 
 const colorPresets = [
@@ -41,13 +43,18 @@ export default function EventCustomizationModal({ isOpen, onClose, onCreateEvent
     backgroundImage: undefined,
     backgroundVideo: undefined,
     logo: undefined,
-    logoPosition: 'top-left'
+    logoPosition: 'top-left',
+    waitingScreenImage: undefined,
+    waitingScreenVideo: undefined
   })
   const [isLoading, setIsLoading] = useState(false)
   const [isUploadingVideo, setIsUploadingVideo] = useState(false)
+  const [isUploadingWaitingVideo, setIsUploadingWaitingVideo] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const videoInputRef = useRef<HTMLInputElement>(null)
   const logoInputRef = useRef<HTMLInputElement>(null)
+  const waitingImageInputRef = useRef<HTMLInputElement>(null)
+  const waitingVideoInputRef = useRef<HTMLInputElement>(null)
 
   // Tamaño máximo permitido por Firestore (0.9 MB en base64 = ~675 KB de archivo)
   const MAX_VIDEO_SIZE_BASE64 = 0.9 * 1024 * 1024 // 0.9 MB
@@ -81,10 +88,14 @@ export default function EventCustomizationModal({ isOpen, onClose, onCreateEvent
         backgroundImage: undefined,
         backgroundVideo: undefined,
         logo: undefined,
-        logoPosition: 'top-left'
+        logoPosition: 'top-left',
+        waitingScreenImage: undefined,
+        waitingScreenVideo: undefined
       })
       if (fileInputRef.current) fileInputRef.current.value = ''
       if (videoInputRef.current) videoInputRef.current.value = ''
+      if (waitingImageInputRef.current) waitingImageInputRef.current.value = ''
+      if (waitingVideoInputRef.current) waitingVideoInputRef.current.value = ''
     } catch (error) {
       console.error('Error creating event:', error)
     } finally {
@@ -183,10 +194,10 @@ export default function EventCustomizationModal({ isOpen, onClose, onCreateEvent
     try {
       // Subir a Cloudinary
       const videoUrl = await uploadVideoToCloudinary(file)
-      
+
       // Guardar la URL en lugar de base64
       setFormData(prev => ({ ...prev, backgroundVideo: videoUrl, backgroundImage: undefined }))
-      
+
       // Limpiar imagen si había una
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
@@ -243,6 +254,77 @@ export default function EventCustomizationModal({ isOpen, onClose, onCreateEvent
 
   if (!isOpen) return null
 
+  const handleWaitingImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (file.size > 2 * 1024 * 1024) {
+      alert('La imagen debe ser menor a 2MB')
+      return
+    }
+
+    if (!file.type.startsWith('image/')) {
+      alert('Por favor selecciona una imagen válida')
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      const result = event.target?.result as string
+      setFormData(prev => ({ ...prev, waitingScreenImage: result, waitingScreenVideo: undefined }))
+      if (waitingVideoInputRef.current) waitingVideoInputRef.current.value = ''
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const removeWaitingImage = () => {
+    setFormData(prev => ({ ...prev, waitingScreenImage: undefined }))
+    if (waitingImageInputRef.current) {
+      waitingImageInputRef.current.value = ''
+    }
+  }
+
+  const handleWaitingVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith('video/')) {
+      alert('Por favor selecciona un video válido')
+      if (waitingVideoInputRef.current) waitingVideoInputRef.current.value = ''
+      return
+    }
+
+    const maxSize = 100 * 1024 * 1024 // 100MB
+    if (file.size > maxSize) {
+      alert(`El video es demasiado grande. El máximo permitido es 100MB.`)
+      if (waitingVideoInputRef.current) waitingVideoInputRef.current.value = ''
+      return
+    }
+
+    setIsUploadingWaitingVideo(true)
+    try {
+      const videoUrl = await uploadVideoToCloudinary(file)
+      setFormData(prev => ({ ...prev, waitingScreenVideo: videoUrl, waitingScreenImage: undefined }))
+      if (waitingImageInputRef.current) waitingImageInputRef.current.value = ''
+    } catch (error: unknown) {
+      console.error('Error uploading waiting video:', error)
+      let errorMessage = 'Error desconocido';
+      if (error && typeof error === 'object' && 'message' in error) {
+        errorMessage = (error as { message?: string }).message || errorMessage;
+      }
+      alert(`Error al subir el video: ${errorMessage}`)
+    } finally {
+      setIsUploadingWaitingVideo(false)
+    }
+  }
+
+  const removeWaitingVideo = () => {
+    setFormData(prev => ({ ...prev, waitingScreenVideo: undefined }))
+    if (waitingVideoInputRef.current) {
+      waitingVideoInputRef.current.value = ''
+    }
+  }
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -265,7 +347,7 @@ export default function EventCustomizationModal({ isOpen, onClose, onCreateEvent
               <Type className="w-5 h-5 mr-2" />
               Información del Evento
             </h3>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Nombre del evento (interno):
@@ -312,13 +394,13 @@ export default function EventCustomizationModal({ isOpen, onClose, onCreateEvent
                   <button
                     key={index}
                     type="button"
-                    onClick={() => setFormData(prev => ({ 
-                      ...prev, 
-                      backgroundColor: preset.bg, 
-                      textColor: preset.text 
+                    onClick={() => setFormData(prev => ({
+                      ...prev,
+                      backgroundColor: preset.bg,
+                      textColor: preset.text
                     }))}
                     className="p-3 rounded-lg border-2 hover:border-gray-400 transition-colors"
-                    style={{ 
+                    style={{
                       backgroundColor: preset.bg,
                       color: preset.text,
                       borderColor: formData.backgroundColor === preset.bg ? '#374151' : 'transparent'
@@ -391,7 +473,7 @@ export default function EventCustomizationModal({ isOpen, onClose, onCreateEvent
                 onChange={handleLogoUpload}
                 className="hidden"
               />
-              
+
               {formData.logo ? (
                 <div className="space-y-3">
                   <div className="relative">
@@ -453,6 +535,110 @@ export default function EventCustomizationModal({ isOpen, onClose, onCreateEvent
             )}
           </div>
 
+
+          {/* Imagen o Video de Espera */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-gray-800 flex items-center">
+              <Monitor className="w-5 h-5 mr-2" />
+              Pantalla de Espera (Opcional)
+            </h3>
+            <p className="text-xs text-gray-600 mb-3">
+              Imagen o video que se mostrará cuando no hay mensajes. Reemplaza al icono y texto por defecto.
+            </p>
+
+            <div className="grid grid-cols-2 gap-4">
+              {/* Opción Video */}
+              <div>
+                <input
+                  ref={waitingVideoInputRef}
+                  type="file"
+                  accept="video/*"
+                  onChange={handleWaitingVideoUpload}
+                  className="hidden"
+                  disabled={isUploadingWaitingVideo}
+                />
+
+                {isUploadingWaitingVideo ? (
+                  <div className="border-2 border-dashed border-blue-300 rounded-lg p-4 text-center bg-blue-50 h-full flex flex-col items-center justify-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mb-2"></div>
+                    <p className="text-xs text-blue-700">Subiendo...</p>
+                  </div>
+                ) : formData.waitingScreenVideo ? (
+                  <div className="relative h-full">
+                    <video
+                      src={formData.waitingScreenVideo}
+                      className="w-full h-32 object-cover rounded-lg border bg-black"
+                      controls
+                      muted
+                    />
+                    <button
+                      type="button"
+                      onClick={removeWaitingVideo}
+                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                    <p className="text-xs text-green-600 mt-1 text-center font-medium">Video cargado</p>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => waitingVideoInputRef.current?.click()}
+                    disabled={isUploadingWaitingVideo || !!formData.waitingScreenImage}
+                    className="w-full h-full border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-gray-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex flex-col items-center justify-center min-h-[120px]"
+                  >
+                    <Video className="w-8 h-8 mb-2 text-gray-400" />
+                    <p className="text-gray-600 text-sm">Subir Video</p>
+                    <p className="text-xs text-gray-400 mt-1">Cloudinary (max 100MB)</p>
+                  </button>
+                )}
+              </div>
+
+              {/* Opción Imagen */}
+              <div>
+                <input
+                  ref={waitingImageInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleWaitingImageUpload}
+                  className="hidden"
+                  disabled={!!formData.waitingScreenVideo}
+                />
+
+                {formData.waitingScreenImage ? (
+                  <div className="relative h-full">
+                    <Image
+                      src={formData.waitingScreenImage}
+                      alt="Waiting Screen"
+                      width={200}
+                      height={150}
+                      className="w-full h-32 object-cover rounded-lg border bg-gray-100"
+                    />
+                    <button
+                      type="button"
+                      onClick={removeWaitingImage}
+                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                    <p className="text-xs text-green-600 mt-1 text-center font-medium">Imagen cargada</p>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => waitingImageInputRef.current?.click()}
+                    disabled={!!formData.waitingScreenVideo}
+                    className="w-full h-full border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-gray-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex flex-col items-center justify-center min-h-[120px]"
+                  >
+                    <ImageIcon className="w-8 h-8 mb-2 text-gray-400" />
+                    <p className="text-gray-600 text-sm">Subir Imagen</p>
+                    <p className="text-xs text-gray-400 mt-1">Max 2MB</p>
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
           {/* Imagen o Video de fondo */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-gray-800 flex items-center">
@@ -470,7 +656,7 @@ export default function EventCustomizationModal({ isOpen, onClose, onCreateEvent
                 <div className="text-sm text-green-800">
                   <p className="font-medium mb-2">✅ Videos almacenados en Cloudinary (Gratis):</p>
                   <p className="mb-2">
-                    Los videos se suben a <strong>Cloudinary</strong> (servicio gratuito) y se guarda solo la URL en Firestore. 
+                    Los videos se suben a <strong>Cloudinary</strong> (servicio gratuito) y se guarda solo la URL en Firestore.
                     Esto permite videos de hasta <strong>100MB</strong> sin problemas de rendimiento.
                   </p>
                   <p className="mb-2">
@@ -498,7 +684,7 @@ export default function EventCustomizationModal({ isOpen, onClose, onCreateEvent
                 className="hidden"
                 disabled={isUploadingVideo}
               />
-              
+
               {isUploadingVideo ? (
                 <div className="w-full border-2 border-dashed border-blue-300 rounded-lg p-8 text-center bg-blue-50">
                   <div className="flex flex-col items-center justify-center">
@@ -554,7 +740,7 @@ export default function EventCustomizationModal({ isOpen, onClose, onCreateEvent
                   onChange={handleImageUpload}
                   className="hidden"
                 />
-                
+
                 {formData.backgroundImage ? (
                   <div className="space-y-3">
                     <div className="relative">
@@ -597,9 +783,9 @@ export default function EventCustomizationModal({ isOpen, onClose, onCreateEvent
           {/* Preview */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-gray-800">Vista Previa</h3>
-            <div 
+            <div
               className="p-6 rounded-lg border relative overflow-hidden"
-              style={{ 
+              style={{
                 backgroundColor: formData.backgroundColor,
                 color: formData.textColor,
                 backgroundImage: formData.backgroundImage ? `url(${formData.backgroundImage})` : undefined,
@@ -621,37 +807,37 @@ export default function EventCustomizationModal({ isOpen, onClose, onCreateEvent
                 />
               )}
               <div className="relative z-10">
-              {/* Logo en preview */}
-              {formData.logo && (
-                <div 
-                  className="absolute"
-                  style={{
-                    ...(formData.logoPosition === 'top-left' && { top: '1rem', left: '1rem' }),
-                    ...(formData.logoPosition === 'top-center' && { top: '1rem', left: '50%', transform: 'translateX(-50%)' }),
-                    ...(formData.logoPosition === 'top-right' && { top: '1rem', right: '1rem' }),
-                    ...(formData.logoPosition === 'left' && { top: '50%', left: '1rem', transform: 'translateY(-50%)' }),
-                    ...(formData.logoPosition === 'center' && { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }),
-                    ...(formData.logoPosition === 'right' && { top: '50%', right: '1rem', transform: 'translateY(-50%)' }),
-                    ...(formData.logoPosition === 'bottom-left' && { bottom: '1rem', left: '1rem' }),
-                    ...(formData.logoPosition === 'bottom-center' && { bottom: '1rem', left: '50%', transform: 'translateX(-50%)' }),
-                    ...(formData.logoPosition === 'bottom-right' && { bottom: '1rem', right: '1rem' })
-                  }}
-                >
-                  <Image
-                    src={formData.logo}
-                    alt="Logo"
-                    width={80}
-                    height={80}
-                    className="w-20 h-20 object-contain"
-                  />
+                {/* Logo en preview */}
+                {formData.logo && (
+                  <div
+                    className="absolute"
+                    style={{
+                      ...(formData.logoPosition === 'top-left' && { top: '1rem', left: '1rem' }),
+                      ...(formData.logoPosition === 'top-center' && { top: '1rem', left: '50%', transform: 'translateX(-50%)' }),
+                      ...(formData.logoPosition === 'top-right' && { top: '1rem', right: '1rem' }),
+                      ...(formData.logoPosition === 'left' && { top: '50%', left: '1rem', transform: 'translateY(-50%)' }),
+                      ...(formData.logoPosition === 'center' && { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }),
+                      ...(formData.logoPosition === 'right' && { top: '50%', right: '1rem', transform: 'translateY(-50%)' }),
+                      ...(formData.logoPosition === 'bottom-left' && { bottom: '1rem', left: '1rem' }),
+                      ...(formData.logoPosition === 'bottom-center' && { bottom: '1rem', left: '50%', transform: 'translateX(-50%)' }),
+                      ...(formData.logoPosition === 'bottom-right' && { bottom: '1rem', right: '1rem' })
+                    }}
+                  >
+                    <Image
+                      src={formData.logo}
+                      alt="Logo"
+                      width={80}
+                      height={80}
+                      className="w-20 h-20 object-contain"
+                    />
+                  </div>
+                )}
+                <h2 className="text-2xl font-bold text-center mb-2" style={{ color: formData.textColor }}>
+                  {formData.displayName || 'Nombre del evento'}
+                </h2>
+                <div className="flex items-center justify-center text-sm opacity-90" style={{ color: formData.textColor }}>
+                  <span>Escaneá el QR para participar</span>
                 </div>
-              )}
-              <h2 className="text-2xl font-bold text-center mb-2" style={{ color: formData.textColor }}>
-                {formData.displayName || 'Nombre del evento'}
-              </h2>
-              <div className="flex items-center justify-center text-sm opacity-90" style={{ color: formData.textColor }}>
-                <span>Escaneá el QR para participar</span>
-              </div>
               </div>
             </div>
           </div>

@@ -12,7 +12,7 @@ export default function GuestPage() {
   const [newMessage, setNewMessage] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
-  
+
   // Estados para registro
   const [registrationData, setRegistrationData] = useState({
     name: '',
@@ -21,7 +21,7 @@ export default function GuestPage() {
   const [isRegistering, setIsRegistering] = useState(false)
   const [showPublicView, setShowPublicView] = useState(false)
   const [imageBase64, setImageBase64] = useState<string | null>(null)
-  
+
   // Refs para scroll automático
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const publicMessagesEndRef = useRef<HTMLDivElement>(null)
@@ -31,9 +31,9 @@ export default function GuestPage() {
   // Función helper para convertir fechas de Firebase
   const formatDate = (date: Date | { seconds: number } | string | number | null | undefined) => {
     if (!date) return '--:--'
-    
+
     let dateObj: Date
-    
+
     // Si es un Timestamp de Firebase
     if (date && typeof date === 'object' && 'seconds' in date && typeof date.seconds === 'number') {
       dateObj = new Date(date.seconds * 1000)
@@ -44,22 +44,22 @@ export default function GuestPage() {
     } else {
       return '--:--'
     }
-    
+
     // Verificar si la fecha es válida
     if (isNaN(dateObj.getTime())) {
       return '--:--'
     }
-    
-    return dateObj.toLocaleTimeString('es-ES', { 
-      hour: '2-digit', 
-      minute: '2-digit' 
+
+    return dateObj.toLocaleTimeString('es-ES', {
+      hour: '2-digit',
+      minute: '2-digit'
     })
   }
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search)
     const eventCode = urlParams.get('event')
-    
+
     if (eventCode) {
       loadEventAndCheckGuest(eventCode)
     } else {
@@ -75,9 +75,9 @@ export default function GuestPage() {
         setIsLoading(false)
         return
       }
-      
+
       setEvent(eventData)
-      
+
       // Verificar si hay un invitado registrado en localStorage
       const savedPhone = localStorage.getItem(`guest_phone_${eventData.id}`)
       if (savedPhone) {
@@ -88,7 +88,7 @@ export default function GuestPage() {
           return
         }
       }
-      
+
       setIsLoading(false)
     } catch (error) {
       console.error('Error loading event:', error)
@@ -104,10 +104,10 @@ export default function GuestPage() {
     try {
       const newGuest = await registerGuest(event.id, registrationData.name.trim(), registrationData.phone.trim())
       setGuest(newGuest)
-      
+
       // Guardar en localStorage para futuras visitas
       localStorage.setItem(`guest_phone_${event.id}`, registrationData.phone.trim())
-      
+
       setIsRegistering(false)
     } catch (error) {
       console.error('Error registering guest:', error)
@@ -224,7 +224,7 @@ export default function GuestPage() {
             <h1 className="text-2xl font-bold text-center mb-6 text-gray-800">
               📱 Registrarse en el Evento
             </h1>
-            
+
             <div className="mb-6 text-center">
               <h2 className="text-lg font-semibold text-gray-700">{event.name}</h2>
               <p className="text-sm text-gray-500">Completa tus datos para participar</p>
@@ -239,7 +239,7 @@ export default function GuestPage() {
                 <input
                   type="text"
                   value={registrationData.name}
-                  onChange={(e) => setRegistrationData({...registrationData, name: e.target.value})}
+                  onChange={(e) => setRegistrationData({ ...registrationData, name: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900"
                   placeholder="Ej: María"
                   required
@@ -254,7 +254,7 @@ export default function GuestPage() {
                 <input
                   type="tel"
                   value={registrationData.phone}
-                  onChange={(e) => setRegistrationData({...registrationData, phone: e.target.value})}
+                  onChange={(e) => setRegistrationData({ ...registrationData, phone: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900"
                   placeholder="Ej: +54 9 11 1234-5678"
                   required
@@ -290,11 +290,10 @@ export default function GuestPage() {
           </div>
           <button
             onClick={() => setShowPublicView(!showPublicView)}
-            className={`p-2 rounded-lg transition-colors flex-shrink-0 ml-2 ${
-              showPublicView 
-                ? 'bg-white bg-opacity-30 hover:bg-opacity-40' 
-                : 'bg-white bg-opacity-20 hover:bg-opacity-30'
-            }`}
+            className={`p-2 rounded-lg transition-colors flex-shrink-0 ml-2 ${showPublicView
+              ? 'bg-white bg-opacity-30 hover:bg-opacity-40'
+              : 'bg-white bg-opacity-20 hover:bg-opacity-30'
+              }`}
             title={showPublicView ? "Ocultar pantalla pública" : "Ver pantalla pública"}
           >
             <Monitor className="w-5 h-5 text-green-600" />
@@ -316,27 +315,25 @@ export default function GuestPage() {
               <>
                 {approvedMessages.map((message) => (
                   <div key={message.id} className={`flex ${message.guestName === guest.name ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-xs px-4 py-2 rounded-lg ${
-                      message.guestName === guest.name 
-                        ? 'bg-green-500 text-white' 
-                        : 'bg-white text-gray-800'
-                    }`}>
+                    <div className={`max-w-xs px-4 py-2 rounded-lg ${message.guestName === guest.name
+                      ? 'bg-green-500 text-white'
+                      : 'bg-white text-gray-800'
+                      }`}>
                       {message.guestName !== guest.name && (
                         <p className="text-xs font-semibold mb-1">{message.guestName}</p>
                       )}
                       <p>{message.message}</p>
                       {message.image && (
                         <div className="mt-2">
-                          <img 
-                            src={message.image} 
-                            alt="Imagen enviada" 
-                            className="max-w-full h-auto max-h-48 rounded-lg shadow-sm" 
+                          <img
+                            src={message.image}
+                            alt="Imagen enviada"
+                            className="max-w-full h-auto max-h-48 rounded-lg shadow-sm"
                           />
                         </div>
                       )}
-                      <p className={`text-xs mt-1 ${
-                        message.guestName === guest.name ? 'text-green-100' : 'text-gray-500'
-                      }`}>
+                      <p className={`text-xs mt-1 ${message.guestName === guest.name ? 'text-green-100' : 'text-gray-500'
+                        }`}>
                         {formatDate(message.createdAt)}
                       </p>
                     </div>
@@ -352,9 +349,9 @@ export default function GuestPage() {
         {/* Vista Pública */}
         {showPublicView && (
           <div className="lg:w-1/2 w-full lg:border-l border-t lg:border-t-0 border-gray-300">
-            <div 
+            <div
               className="h-full relative"
-              style={{ 
+              style={{
                 backgroundColor: event.backgroundColor,
                 color: event.textColor,
                 backgroundImage: event.backgroundImage ? `url(${event.backgroundImage})` : undefined,
@@ -365,7 +362,7 @@ export default function GuestPage() {
             >
               {/* Logo en posición absoluta */}
               {event.logo && (
-                <div 
+                <div
                   className="absolute z-10"
                   style={{
                     ...(event.logoPosition === 'top-left' && { top: '0.5rem', left: '0.5rem' }),
@@ -392,9 +389,9 @@ export default function GuestPage() {
               )}
 
               {/* Header de la pantalla pública */}
-              <div 
+              <div
                 className="border-b p-4"
-                style={{ 
+                style={{
                   backgroundColor: event.backgroundImage ? 'rgba(0,0,0,0.7)' : undefined,
                   backdropFilter: event.backgroundImage ? 'blur(10px)' : undefined
                 }}
@@ -422,17 +419,16 @@ export default function GuestPage() {
                   ) : (
                     <>
                       {approvedMessages.map((message, index) => (
-                        <div 
-                          key={message.id} 
-                          className={`flex items-end space-x-2 ${
-                            index % 2 === 0 ? 'animate-slideInLeft' : 'animate-slideInRight'
-                          }`}
+                        <div
+                          key={message.id}
+                          className={`flex items-end space-x-2 ${index % 2 === 0 ? 'animate-slideInLeft' : 'animate-slideInRight'
+                            }`}
                           style={{ animationDelay: `${index * 0.1}s` }}
                         >
                           {/* Avatar */}
-                          <div 
+                          <div
                             className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0"
-                            style={{ 
+                            style={{
                               background: 'linear-gradient(135deg, #25d366, #128c7e)',
                               color: 'white',
                               boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
@@ -440,7 +436,7 @@ export default function GuestPage() {
                           >
                             {message.guestName.charAt(0).toUpperCase()}
                           </div>
-                          
+
                           {/* Mensaje */}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center space-x-1 mb-1">
@@ -449,11 +445,11 @@ export default function GuestPage() {
                                 {formatDate(message.createdAt)}
                               </span>
                             </div>
-                            
+
                             {/* Burbuja de mensaje */}
-                            <div 
+                            <div
                               className="rounded-lg px-3 py-2 text-sm break-words relative"
-                              style={{ 
+                              style={{
                                 backgroundColor: event.textColor === '#ffffff' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
                                 backdropFilter: 'blur(5px)'
                               }}
@@ -501,10 +497,10 @@ export default function GuestPage() {
           {imageBase64 && (
             <div className="mb-3">
               <div className="relative inline-block">
-                <img 
-                  src={imageBase64} 
-                  alt="Preview" 
-                  className="max-h-32 max-w-full rounded-lg border shadow-sm" 
+                <img
+                  src={imageBase64}
+                  alt="Preview"
+                  className="max-h-32 max-w-full rounded-lg border shadow-sm"
                 />
                 <button
                   onClick={() => setImageBase64(null)}

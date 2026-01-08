@@ -42,6 +42,8 @@ export interface Event {
   backgroundVideo?: string // URL de Cloudinary
   logo?: string // base64 o URL
   logoPosition?: 'top-left' | 'top-right' | 'top-center' | 'bottom-left' | 'bottom-right' | 'bottom-center' | 'left' | 'right' | 'center'
+  waitingScreenImage?: string // base64 o URL
+  waitingScreenVideo?: string // URL de Cloudinary
   // Efectos
   effects?: {
     shake?: boolean // Pantalla movediza
@@ -68,7 +70,9 @@ export const createEvent = async (
   backgroundImage?: string,
   backgroundVideo?: string,
   logo?: string,
-  logoPosition?: 'top-left' | 'top-right' | 'top-center' | 'bottom-left' | 'bottom-right' | 'bottom-center' | 'left' | 'right' | 'center'
+  logoPosition?: 'top-left' | 'top-right' | 'top-center' | 'bottom-left' | 'bottom-right' | 'bottom-center' | 'left' | 'right' | 'center',
+  waitingScreenImage?: string,
+  waitingScreenVideo?: string
 ) => {
   try {
     const qrCode = `event_${Date.now()}`
@@ -84,6 +88,8 @@ export const createEvent = async (
       backgroundVideo: string | null
       logo: string | null
       logoPosition: 'top-left' | 'top-right' | 'top-center' | 'bottom-left' | 'bottom-right' | 'bottom-center' | 'left' | 'right' | 'center' | null
+      waitingScreenImage: string | null
+      waitingScreenVideo: string | null
       effects: {
         shake: boolean
         neonLights: boolean
@@ -102,6 +108,8 @@ export const createEvent = async (
       backgroundVideo: backgroundVideo || null,
       logo: logo || null,
       logoPosition: logoPosition || null,
+      waitingScreenImage: waitingScreenImage || null,
+      waitingScreenVideo: waitingScreenVideo || null,
       effects: {
         shake: false,
         neonLights: false,
@@ -133,6 +141,8 @@ export const createEvent = async (
       backgroundVideo,
       logo,
       logoPosition,
+      waitingScreenImage,
+      waitingScreenVideo,
       effects: {
         shake: false,
         neonLights: false,
